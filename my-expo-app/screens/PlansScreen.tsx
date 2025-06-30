@@ -5,35 +5,38 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
+  ActivityIndicator,
+  SafeAreaView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import { API_CONFIG } from '../config/api';
+import { useFocusEffect } from '@react-navigation/native';
 
-type PlansScreenProps = {
-  onNavigate: (screen: string) => void;
-};
-
-interface PrepMealData {
+interface MealPlan {
   _id: string;
   name: string;
   userId: string;
   startDate: string;
-  todoList: Array<{
-    day: number;
-    date: string;
-    dailyCalories: number;
-    breakfast: MealDetail;
-    lunch: MealDetail;
-    dinner: MealDetail;
-  }>;
+  endDate: string;
+  todoList: DayPlan[];
   createdAt: string;
   updatedAt: string;
 }
 
-interface MealDetail {
+interface DayPlan {
+  day: number;
+  date: string;
+  dailyCalories: number;
+  breakfast: Meal;
+  lunch: Meal;
+  dinner: Meal;
+}
+
+interface Meal {
   name: string;
   imageUrl: string;
   calories: number;
@@ -43,61 +46,111 @@ interface MealDetail {
   notes: string;
 }
 
+interface PlansData {
+  ongoing: MealPlan[];
+  upcoming: MealPlan[];
+}
+
+type PlansScreenProps = {
+  onNavigate: (screen: string, params?: any) => void;
+};
+
 export default function PlansScreen({ onNavigate }: PlansScreenProps) {
-  type MealType = 'breakfast' | 'lunch' | 'dinner';
-
-  const [selectedMealType, setSelectedMealType] = useState<MealType>('breakfast');
-  const [userNotes, setUserNotes] = useState('');
-  const [selectedDay, setSelectedDay] = useState(0); // Index of selected day
-  const [prepMealData, setPrepMealData] = useState<PrepMealData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPrepMeal, setSelectedPrepMeal] = useState<PrepMealData | null>(null);
-
-  const mealTypes: { key: MealType; label: string }[] = [
-    { key: 'breakfast', label: 'Breakfast' },
-    { key: 'lunch', label: 'Lunch' },
-    { key: 'dinner', label: 'Dinner' },
-  ];
+  const [plansData, setPlansData] = useState<PlansData>({ ongoing: [], upcoming: [] });
+  const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null);
+  const [selectedDay, setSelectedDay] = useState<DayPlan | null>(null);
+  const [activeTab, setActiveTab] = useState<'ongoing' | 'upcoming'>('ongoing');
 
   useEffect(() => {
-    loadPrepMeals();
+    loadMealPlans();
   }, []);
 
-  const loadPrepMeals = async () => {
+  useFocusEffect(
+    React.useCallback(() => {
+      loadMealPlans();
+    }, [])
+  );
+
+  const loadMealPlans = async () => {
     try {
       setLoading(true);
       const token = await SecureStore.getItemAsync('access_token');
 
       if (!token) {
-        Alert.alert('Error', 'No authentication token found. Please login again.');
-        onNavigate('Login');
+        Alert.alert(
+          'Authentication Required',
+          'No authentication token found. Please restart the app and login again.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Navigate to home instead of login
+                onNavigate('Home');
+              },
+            },
+          ]
+        );
         return;
       }
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PREP_MEAL}`, {
+      console.log('🔍 Loading meal plans...');
+    //   console.log(token, "<<<<<<<<<<<<<<");
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}/${API_CONFIG.ENDPOINTS.PREP_MEAL}`, {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          "Content-Type": 'application/json',
+          "Authorization": `Bearer ${token}`,
         },
       });
-
+    //   console.log(response, "<<<<<<<<<<<<<<");
+      
+    //   console.log(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PREP_MEAL}`, "<<<<<<<<<<<<<<");
+      
       if (!response.ok) {
         if (response.status === 401) {
-          Alert.alert('Error', 'Session expired. Please login again.');
-          await SecureStore.deleteItemAsync('access_token');
-          onNavigate('Login');
+          Alert.alert(
+            'Session Expired',
+            'Your session has expired. Please restart the app and login again.',
+            [
+              {
+                text: 'OK',
+                // onPress: async () => {
+                //   await SecureStore.deleteItemAsync('access_token');
+                //   await SecureStore.deleteItemAsync('user_id');
+                // },
+              },
+            ]
+          );
           return;
         }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
-      setPrepMealData(result.data);
-      if (result.data.length > 0) {
-        setSelectedPrepMeal(result.data[0]);
+      console.log('📄 Meal plans response:', result);
+
+      // Handle the new response structure
+      const newPlansData: PlansData = {
+        ongoing: result.data?.ongoing || [],
+        upcoming: result.data?.upcoming || [],
+      };
+      
+
+      setPlansData(newPlansData);
+
+      // Set default selected plan from ongoing first, then upcoming
+      if (newPlansData.ongoing.length > 0) {
+        setSelectedPlan(newPlansData.ongoing[0]);
+        setSelectedDay(newPlansData.ongoing[0].todoList[0]);
+        setActiveTab('ongoing');
+      } else if (newPlansData.upcoming.length > 0) {
+        setSelectedPlan(newPlansData.upcoming[0]);
+        setSelectedDay(newPlansData.upcoming[0].todoList[0]);
+        setActiveTab('upcoming');
       } else {
-        // Jika tidak ada meal plan, redirect ke form
+        // No meal plans found
         Alert.alert(
           'No Meal Plan Found',
           "You don't have any meal plans yet. Would you like to create one?",
@@ -109,242 +162,253 @@ export default function PlansScreen({ onNavigate }: PlansScreenProps) {
             },
             {
               text: 'Create Plan',
-              onPress: () => onNavigate('Add'), // Ganti dengan nama screen form Anda
+              onPress: () => onNavigate('Add'),
             },
           ]
         );
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to load meal plans');
-      console.error('Error loading prep meals:', error);
+      Alert.alert('Error', 'Failed to load meal plans. Please check your internet connection.');
+      console.error('❌ Error loading meal plans:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Get current meal data
-  const getCurrentMeal = (): MealDetail | null => {
-    if (!selectedPrepMeal || !selectedPrepMeal.todoList[selectedDay]) {
-      return null;
-    }
-    return selectedPrepMeal.todoList[selectedDay][selectedMealType];
-  };
-
-  // Get current day's calories
-  const getCurrentDayCalories = (): number => {
-    if (!selectedPrepMeal || !selectedPrepMeal.todoList[selectedDay]) {
-      return 0;
-    }
-    return selectedPrepMeal.todoList[selectedDay].dailyCalories;
-  };
-
-  // Get weekday name from date
-  const getWeekdayName = (dateString: string): string => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { weekday: 'short' });
+    return date.toLocaleDateString('id-ID', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   };
 
-  // Get month and year from start date
-  const getMonthYear = (): string => {
-    if (!selectedPrepMeal) return 'Loading...';
-    const date = new Date(selectedPrepMeal.startDate);
-    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const getStatusColor = (status: 'ongoing' | 'upcoming') => {
+    return status === 'ongoing' ? '#10B981' : '#F59E0B';
   };
 
-  const currentMeal = getCurrentMeal();
+  const getStatusText = (status: 'ongoing' | 'upcoming') => {
+    return status === 'ongoing' ? 'Sedang Berjalan' : 'Akan Datang';
+  };
+
+  const handleAlternateNavigation = () => {
+    if (!selectedPlan) {
+      Alert.alert('Error', 'Please select a meal plan first');
+      return;
+    }
+
+    console.log('🚀 Navigating to Upload with planId:', selectedPlan._id);
+    onNavigate('Upload', { planId: selectedPlan._id, planName: selectedPlan.name });
+  };
+
+  const renderTabSelector = () => (
+    <View style={styles.tabContainer}>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'ongoing' && styles.activeTab]}
+        onPress={() => {
+          setActiveTab('ongoing');
+          if (plansData.ongoing.length > 0) {
+            setSelectedPlan(plansData.ongoing[0]);
+            setSelectedDay(plansData.ongoing[0].todoList[0]);
+          }
+        }}>
+        <Text style={[styles.tabText, activeTab === 'ongoing' && styles.activeTabText]}>
+          Ongoing ({plansData.ongoing.length})
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'upcoming' && styles.activeTab]}
+        onPress={() => {
+          setActiveTab('upcoming');
+          if (plansData.upcoming.length > 0) {
+            setSelectedPlan(plansData.upcoming[0]);
+            setSelectedDay(plansData.upcoming[0].todoList[0]);
+          }
+        }}>
+        <Text style={[styles.tabText, activeTab === 'upcoming' && styles.activeTabText]}>
+          Upcoming ({plansData.upcoming.length})
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderPlanSelector = () => {
+    const currentPlans = activeTab === 'ongoing' ? plansData.ongoing : plansData.upcoming;
+
+    if (currentPlans.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="calendar-outline" size={64} color="#9CA3AF" />
+          <Text style={styles.emptyText}>
+            {activeTab === 'ongoing' ? 'No ongoing meal plans' : 'No upcoming meal plans'}
+          </Text>
+          <TouchableOpacity style={styles.createButton} onPress={() => onNavigate('Add')}>
+            <Text style={styles.createButtonText}>Create New Plan</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.planSelector}>
+        <Text style={styles.sectionTitle}>Select Meal Plan</Text>
+        {currentPlans.map((plan) => (
+          <TouchableOpacity
+            key={plan._id}
+            style={[styles.planCard, selectedPlan?._id === plan._id && styles.selectedPlanCard]}
+            onPress={() => {
+              setSelectedPlan(plan);
+              setSelectedDay(plan.todoList[0]);
+            }}>
+            <View style={styles.planHeader}>
+              <Text style={styles.planName}>{plan.name}</Text>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(activeTab) }]}>
+                <Text style={styles.statusText}>{getStatusText(activeTab)}</Text>
+              </View>
+            </View>
+            <Text style={styles.planDate}>
+              {formatDate(plan.startDate)} - {formatDate(plan.endDate)}
+            </Text>
+            <Text style={styles.planDays}>{plan.todoList.length} days</Text>
+
+            {/* Alternate Button - hanya tampil jika plan ini yang selected */}
+            {selectedPlan?._id === plan._id && (
+              <TouchableOpacity style={styles.alternateButton} onPress={handleAlternateNavigation}>
+                <Ionicons name="camera" size={18} color="#8B4A6B" />
+                <Text style={styles.alternateButtonText}>Alternate</Text>
+              </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
+  const renderDaySelector = () => {
+    if (!selectedPlan) return null;
+
+    return (
+      <View style={styles.daySelector}>
+        <Text style={styles.sectionTitle}>Select Day</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayScroll}>
+          {selectedPlan.todoList.map((day) => (
+            <TouchableOpacity
+              key={day.day}
+              style={[styles.dayCard, selectedDay?.day === day.day && styles.selectedDayCard]}
+              onPress={() => setSelectedDay(day)}>
+              <Text style={styles.dayNumber}>Day {day.day}</Text>
+              <Text style={styles.dayDate}>{formatDate(day.date)}</Text>
+              <Text style={styles.dayCalories}>{day.dailyCalories} cal</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const renderMealDetails = () => {
+    if (!selectedDay) return null;
+
+    const meals = [
+      { name: 'Breakfast', data: selectedDay.breakfast, icon: 'sunny-outline' },
+      { name: 'Lunch', data: selectedDay.lunch, icon: 'partly-sunny-outline' },
+      { name: 'Dinner', data: selectedDay.dinner, icon: 'moon-outline' },
+    ];
+
+    return (
+      <View style={styles.mealDetails}>
+        <Text style={styles.sectionTitle}>
+          Day {selectedDay.day} Meals ({selectedDay.dailyCalories} calories)
+        </Text>
+        {meals.map((meal, index) => (
+          <View key={index} style={styles.mealCard}>
+            <View style={styles.mealHeader}>
+              <View style={styles.mealTitleContainer}>
+                <Ionicons name={meal.icon as any} size={20} color="#8B4A6B" />
+                <Text style={styles.mealType}>{meal.name}</Text>
+              </View>
+              <Text style={styles.mealCalories}>{meal.data.calories} cal</Text>
+            </View>
+            <Text style={styles.mealName}>{meal.data.name}</Text>
+
+            <View style={styles.mealSection}>
+              <Text style={styles.mealSectionTitle}>Ingredients:</Text>
+              {meal.data.ingredients.map((ingredient, idx) => (
+                <Text key={idx} style={styles.mealItem}>
+                  • {ingredient}
+                </Text>
+              ))}
+            </View>
+
+            <View style={styles.mealSection}>
+              <Text style={styles.mealSectionTitle}>Recipe:</Text>
+              {meal.data.recipes.map((recipe, idx) => (
+                <Text key={idx} style={styles.mealItem}>
+                  {idx + 1}. {recipe}
+                </Text>
+              ))}
+            </View>
+
+            {/* Meal Status Badge */}
+            <View style={styles.mealStatusContainer}>
+              <View
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor: meal.data.isDone ? '#10B981' : '#F59E0B',
+                  },
+                ]}>
+                <Text style={styles.statusText}>{meal.data.isDone ? 'Completed' : 'Pending'}</Text>
+              </View>
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#8B5CF6" />
-        <Text style={styles.loadingText}>Loading meal plans...</Text>
-      </View>
-    );
-  }
-
-  if (!selectedPrepMeal || !currentMeal) {
-    return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <Text style={styles.noDataText}>No meal plans available</Text>
-        <TouchableOpacity style={styles.refreshButton} onPress={loadPrepMeals}>
-          <Text style={styles.refreshButtonText}>Refresh</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8B4A6B" />
+          <Text style={styles.loadingText}>Loading meal plans...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
 
-      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{selectedPrepMeal.name}</Text>
-          <TouchableOpacity style={styles.addButton} onPress={loadPrepMeals}>
-            <Text style={styles.addButtonText}>↻</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Calendar Section */}
-        <View style={styles.calendarSection}>
-          <View style={styles.monthHeader}>
-            <Text style={styles.monthText}>{getMonthYear()}</Text>
-            <TouchableOpacity style={styles.calendarIcon}>
-              <Text style={styles.calendarIconText}>📅</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.weekContainer}>
-            {selectedPrepMeal.todoList.map((dayData, index) => {
-              const weekdayName = getWeekdayName(dayData.date);
-
-              return (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.dayContainer,
-                    selectedDay === index && styles.selectedDayContainer,
-                  ]}
-                  onPress={() => setSelectedDay(index)}>
-                  <Text style={[styles.dayText, selectedDay === index && styles.selectedDayText]}>
-                    {weekdayName}
-                  </Text>
-                  <Text style={[styles.dateText, selectedDay === index && styles.selectedDateText]}>
-                    Day {dayData.day}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Daily Calories Section */}
-        <View style={styles.dailyCaloriesSection}>
-          <Text style={styles.dailyCaloriesTitle}>Daily Calories</Text>
-          <View style={styles.caloriesCard}>
-            <Text style={styles.caloriesNumber}>{getCurrentDayCalories().toLocaleString()}</Text>
-            <Text style={styles.caloriesLabel}>kcal target</Text>
-          </View>
-        </View>
-
-        {/* Meal Type Tabs */}
-        <View style={styles.mealTypesContainer}>
-          {mealTypes.map((type) => (
-            <TouchableOpacity
-              key={type.key}
-              style={[
-                styles.mealTypeTab,
-                selectedMealType === type.key && styles.selectedMealTypeTab,
-              ]}
-              onPress={() => setSelectedMealType(type.key)}>
-              <Text
-                style={[
-                  styles.mealTypeText,
-                  selectedMealType === type.key && styles.selectedMealTypeText,
-                ]}>
-                {type.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Recipe Detail Section */}
-        <View style={styles.recipeDetailSection}>
-          {/* Recipe Name and Calories */}
-          <View style={styles.recipeHeader}>
-            <Text style={styles.recipeName}>{currentMeal.name}</Text>
-            <Text style={styles.recipeCalories}>{currentMeal.calories} kcal</Text>
-          </View>
-
-          {/* Ingredients */}
-          <View style={styles.ingredientsSection}>
-            <Text style={styles.sectionTitle}>Ingredients</Text>
-            <View style={styles.ingredientsList}>
-              {currentMeal.ingredients.map((ingredient, index) => (
-                <View key={index} style={styles.ingredientItem}>
-                  <Text style={styles.bulletPoint}>•</Text>
-                  <Text style={styles.ingredientText}>{ingredient}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* Recipes/Instructions */}
-          <View style={styles.recipesSection}>
-            <Text style={styles.sectionTitle}>Recipes</Text>
-            <View style={styles.recipesList}>
-              {currentMeal.recipes.map((step, index) => (
-                <View key={index} style={styles.recipeStep}>
-                  <Text style={styles.stepNumber}>{index + 1}.</Text>
-                  <Text style={styles.stepText}>{step}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* Notes Section */}
-          <View style={styles.notesSection}>
-            <Text style={styles.sectionTitle}>Notes</Text>
-            <View style={styles.notesInputContainer}>
-              <Text style={styles.notesPlaceholder}>
-                {currentMeal.notes || userNotes || 'Add your personal notes here...'}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Fixed Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('Home')}>
-          <View style={styles.navIcon}>
-            <Text style={styles.navIconText}>🏠</Text>
-          </View>
-          <Text style={styles.navLabel}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('Search')}>
-          <View style={styles.navIcon}>
-            <Text style={styles.navIconText}>📊</Text>
-          </View>
-          <Text style={styles.navLabel}>Activity</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.addNavButton}>
-          <View style={styles.addButtonDots}>
-            <View style={styles.dot}></View>
-            <View style={styles.dot}></View>
-            <View style={styles.dot}></View>
-            <View style={styles.dot}></View>
-            <View style={styles.dot}></View>
-            <View style={styles.dot}></View>
-            <View style={styles.dot}></View>
-            <View style={styles.dot}></View>
-            <View style={styles.dot}></View>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <View style={styles.navIcon}>
-            <Text style={styles.navIconText}>🗓️</Text>
-          </View>
-          <Text style={[styles.navLabel, styles.activeNavLabel]}>Scheduler</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('Profile')}>
-          <View style={styles.navIcon}>
-            <Text style={styles.navIconText}>👤</Text>
-          </View>
-          <Text style={styles.navLabel}>Profile</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Meal Plans</Text>
+        <TouchableOpacity onPress={() => onNavigate('Add')} style={styles.addButton}>
+          <Ionicons name="add" size={24} color="white" />
         </TouchableOpacity>
       </View>
-    </View>
+
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {renderTabSelector()}
+        {renderPlanSelector()}
+        {renderDaySelector()}
+        {renderMealDetails()}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F0F5',
+    backgroundColor: '#F8FBF6',
   },
   loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -353,36 +417,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
   },
-  noDataText: {
-    fontSize: 18,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  refreshButton: {
-    backgroundColor: '#8B5CF6',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  refreshButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  scrollContent: {
-    flex: 1,
-    marginBottom: 90,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 20,
     paddingBottom: 20,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#1F2937',
   },
@@ -390,322 +437,243 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1F2937',
+    backgroundColor: '#8B4A6B',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  addButtonText: {
-    fontSize: 20,
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  calendarSection: {
-    paddingHorizontal: 20,
-    marginBottom: 25,
-  },
-  monthHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  monthText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1F2937',
-  },
-  calendarIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#E8D5F2',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  calendarIconText: {
-    fontSize: 16,
-  },
-  weekContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 8,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  dayContainer: {
+  scrollContent: {
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  selectedDayContainer: {
-    backgroundColor: '#8B5CF6',
-  },
-  dayText: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 4,
-    fontWeight: '500',
-  },
-  selectedDayText: {
-    color: 'white',
-  },
-  dateText: {
-    fontSize: 11,
-    color: '#1F2937',
-    fontWeight: '600',
-  },
-  selectedDateText: {
-    color: 'white',
-  },
-  dailyCaloriesSection: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  dailyCaloriesTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  caloriesCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
     padding: 20,
-    alignItems: 'center',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
   },
-  caloriesNumber: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#8B5CF6',
-    marginBottom: 4,
-  },
-  caloriesLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  mealTypesContainer: {
+  tabContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 4,
     marginBottom: 20,
   },
-  mealTypeTab: {
-    paddingVertical: 8,
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    marginRight: 20,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  selectedMealTypeTab: {
-    borderBottomColor: '#1F2937',
-  },
-  mealTypeText: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  selectedMealTypeText: {
-    color: '#1F2937',
-    fontWeight: '600',
-  },
-  recipeDetailSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  recipeHeader: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    borderRadius: 8,
     alignItems: 'center',
   },
-  recipeName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  recipeCalories: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#8B5CF6',
-  },
-  ingredientsSection: {
+  activeTab: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    elevation: 1,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 2,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  activeTabText: {
+    color: '#8B4A6B',
   },
   sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  planSelector: {
+    marginBottom: 20,
+  },
+  planCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  selectedPlanCard: {
+    borderColor: '#8B4A6B',
+  },
+  planHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  planName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    color: 'white',
+    fontWeight: '600',
+  },
+  planDate: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  planDays: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  alternateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#8B4A6B',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  alternateButtonText: {
+    color: '#8B4A6B',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 16,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  createButton: {
+    backgroundColor: '#8B4A6B',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  createButtonText: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  daySelector: {
+    marginBottom: 20,
+  },
+  dayScroll: {
+    marginTop: 8,
+  },
+  dayCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 12,
+    marginRight: 12,
+    minWidth: 100,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  selectedDayCard: {
+    borderColor: '#8B4A6B',
+  },
+  dayNumber: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  dayDate: {
+    fontSize: 10,
+    color: '#6B7280',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  dayCalories: {
+    fontSize: 10,
+    color: '#8B4A6B',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  mealDetails: {
+    marginBottom: 20,
+  },
+  mealCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  mealHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  mealTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mealType: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8B4A6B',
+    marginLeft: 8,
+  },
+  mealCalories: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  mealName: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#1F2937',
     marginBottom: 12,
   },
-  ingredientsList: {
-    // Remove gap property
+  mealSection: {
+    marginBottom: 12,
   },
-  ingredientItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8, // Add this instead of gap
-  },
-  bulletPoint: {
+  mealSectionTitle: {
     fontSize: 14,
-    color: '#8B5CF6',
-    marginRight: 8,
-    marginTop: 2,
-    fontWeight: 'bold',
-  },
-  ingredientText: {
-    fontSize: 14,
-    color: '#374151',
-    flex: 1,
-    lineHeight: 20,
-  },
-  recipesSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  recipesList: {
-    // Remove gap property
-  },
-  recipeStep: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12, // Add this instead of gap
-  },
-  stepNumber: {
-    fontSize: 14,
-    color: '#8B5CF6',
-    fontWeight: 'bold',
-    marginRight: 8,
-    marginTop: 2,
-    minWidth: 20,
-  },
-  stepText: {
-    fontSize: 14,
-    color: '#374151',
-    flex: 1,
-    lineHeight: 20,
-  },
-
-  notesSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  notesInputContainer: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    padding: 12,
-    minHeight: 80,
-    backgroundColor: '#F9FAFB',
-  },
-  notesPlaceholder: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    fontStyle: 'italic',
-  },
-  bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    paddingVertical: 12,
-    paddingBottom: 30,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  navItem: {
-    alignItems: 'center',
-  },
-  navIcon: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  navIconText: {
-    fontSize: 16,
-  },
-  navLabel: {
-    fontSize: 11,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  activeNavLabel: {
-    color: '#8B5CF6',
     fontWeight: '600',
+    color: '#374151',
+    marginBottom: 6,
   },
-  addNavButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#1F2937',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+  mealItem: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 2,
+    lineHeight: 20,
   },
-  addButtonDots: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    width: 24,
-    height: 24,
-    justifyContent: 'space-between',
-    alignContent: 'space-between',
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'white',
+  mealStatusContainer: {
+    alignItems: 'flex-end',
+    marginTop: 8,
   },
 });

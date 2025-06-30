@@ -20,7 +20,7 @@ import { API_CONFIG } from '../config/api';
 
 export default function RegisterScreen({ navigation }: { navigation: StackNavigationProp<any> }) {
     const [errorRegister, setErrorRegister] = useState('');
-    const [fullName, setFullName] = useState('');
+    const [name, setName] = useState('');
     const [dateOfBirth, setDateOfBirth] = useState(new Date()); // Ganti dari age ke dateOfBirth
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [gender, setGender] = useState('');
@@ -48,7 +48,7 @@ export default function RegisterScreen({ navigation }: { navigation: StackNaviga
         setErrorRegister(''); // Clear error sebelum register
 
         // Validasi input
-        if (!fullName.trim()) {
+        if (!name.trim()) {
             setErrorRegister('Nama lengkap harus diisi');
             return;
         }
@@ -86,7 +86,7 @@ export default function RegisterScreen({ navigation }: { navigation: StackNaviga
 
         try {
             const response = await axios.post(`${API_CONFIG.BASE_URL}/api/register`, {
-                fullName: fullName,
+                name: name,
                 dateOfBirth: dateOfBirth, // Kirim dateOfBirth ke backend
                 gender: gender,
                 username: username,
@@ -156,8 +156,8 @@ export default function RegisterScreen({ navigation }: { navigation: StackNaviga
                                     style={styles.input}
                                     placeholder="Masukkan nama lengkap"
                                     placeholderTextColor="#999"
-                                    value={fullName}
-                                    onChangeText={setFullName}
+                                    value={name}
+                                    onChangeText={setName}
                                     autoCapitalize="words"
                                     autoCorrect={false}
                                 />
