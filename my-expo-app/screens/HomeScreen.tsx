@@ -12,8 +12,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { checkUserMealPlan } from '../services/mealPlanService';
-import { useFocusEffect } from '@react-navigation/native'; // Pastikan ini di-import
+import { checkUserMealPlan, calculateTodayIntake } from '../services/mealPlanService';
+import { useFocusEffect } from '@react-navigation/native';
 
 type HomeScreenProps = {
   onNavigate: (screen: string) => void;
@@ -22,28 +22,142 @@ type HomeScreenProps = {
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function HomeScreen({ onNavigate }: HomeScreenProps) {
-  // State baru untuk meal plan
+  // State untuk meal plan dan calories
   const [hasMealPlan, setHasMealPlan] = useState(false);
   const [mealPlanCount, setMealPlanCount] = useState(0);
   const [mealPlanLoading, setMealPlanLoading] = useState(true);
 
-  // ...existing state variables...
+  // New states for calorie tracking
+  const [intakeCalories, setIntakeCalories] = useState(0);
+  const [targetCalories, setTargetCalories] = useState(0);
+  const [intakePercentage, setIntakePercentage] = useState(0);
+  const [remainingCalories, setRemainingCalories] = useState(0);
+  const [completedMeals, setCompletedMeals] = useState(0);
+  const [totalMeals, setTotalMeals] = useState(0);
+
+  // Existing state variables
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check meal plan status
+  // PENTING: Helper function untuk reset calorie data - HARUS DIATAS checkMealPlanStatus
+  const resetCalorieData = () => {
+    console.log('🔄 Resetting calorie data to defaults');
+    setIntakeCalories(0);
+    setTargetCalories(0);
+    setIntakePercentage(0);
+    setRemainingCalories(0);
+    setCompletedMeals(0);
+    setTotalMeals(0);
+  };
+
+  // Check meal plan status and calculate calories
+  // Update checkMealPlanStatus function dengan debugging
   const checkMealPlanStatus = async () => {
     try {
       setMealPlanLoading(true);
-      console.log('Checking meal plan status...'); // Debug log
+      console.log('🔍 HomeScreen: Checking meal plan status...');
+
+      // PASTIKAN await di sini
       const result = await checkUserMealPlan();
-      console.log('Meal plan result:', result); // Debug log
-      setHasMealPlan(result.hasMealPlan);
-      setMealPlanCount(result.mealPlanCount);
+      
+      console.log('📊 HomeScreen: Raw result received from API:', result);
+      console.log('📊 HomeScreen: Result type:', typeof result);
+      
+      if (result) {
+        console.log('📊 HomeScreen: Result keys:', Object.keys(result));
+        console.log('📊 HomeScreen: Complete result object:', JSON.stringify(result, null, 2));
+      } else {
+        console.log('❌ HomeScreen: Result is null/undefined');
+      }
+
+      // Defensive checks untuk result
+      if (!result || typeof result !== 'object') {
+        console.log('❌ HomeScreen: Invalid result from checkUserMealPlan');
+        throw new Error('Invalid meal plan data received');
+      }
+
+      // Log semua properties dari result
+      console.log('📊 HomeScreen: Result properties breakdown:', {
+        hasMealPlan: result.hasMealPlan,
+        mealPlanCount: result.mealPlanCount,
+        ongoingPlans: result.ongoingPlans,
+        ongoingPlansType: typeof result.ongoingPlans,
+        ongoingPlansIsArray: Array.isArray(result.ongoingPlans),
+        ongoingPlansLength: result.ongoingPlans?.length,
+        upcomingPlans: result.upcomingPlans,
+        upcomingPlansType: typeof result.upcomingPlans,
+        upcomingPlansIsArray: Array.isArray(result.upcomingPlans),
+        upcomingPlansLength: result.upcomingPlans?.length,
+        allPlans: result.allPlans,
+        allPlansLength: result.allPlans?.length
+      });
+
+      // Safely set state dengan fallback values
+      setHasMealPlan(result.hasMealPlan || false);
+      setMealPlanCount(result.mealPlanCount || 0);
+
+      // Extract ongoing plans dengan EXPLICIT checking
+      const ongoingPlans = result.ongoingPlans;
+      console.log('📊 HomeScreen: Extracted ongoing plans (direct):', ongoingPlans);
+      console.log('📊 HomeScreen: Typeof ongoing plans:', typeof ongoingPlans);
+      console.log('📊 HomeScreen: Is ongoing plans array?:', Array.isArray(ongoingPlans));
+      console.log('📊 HomeScreen: Ongoing plans length:', ongoingPlans?.length);
+
+      // Log each ongoing plan if exists
+      if (Array.isArray(ongoingPlans) && ongoingPlans.length > 0) {
+        ongoingPlans.forEach((plan, index) => {
+          console.log(`📋 HomeScreen: Ongoing plan ${index + 1}:`, {
+            id: plan?._id,
+            name: plan?.name,
+            hasToDoList: !!plan?.todoList,
+            todoListLength: plan?.todoList?.length
+          });
+        });
+      }
+
+      // Calculate today's intake if there are ongoing plans
+      if (Array.isArray(ongoingPlans) && ongoingPlans.length > 0) {
+        console.log('📊 HomeScreen: Processing ongoing plans:', ongoingPlans.length);
+
+        try {
+          console.log('📊 HomeScreen: Calling calculateTodayIntake with:', ongoingPlans);
+          const calorieData = calculateTodayIntake(ongoingPlans);
+          console.log('📊 HomeScreen: Received calorie data:', calorieData);
+
+          // Defensive checks untuk calorieData
+          if (calorieData && typeof calorieData === 'object') {
+            console.log('📊 HomeScreen: Setting calorie states with data:', calorieData);
+            setIntakeCalories(calorieData.intakeCalories || 0);
+            setTargetCalories(calorieData.targetCalories || 0);
+            setIntakePercentage(calorieData.intakePercentage || 0);
+            setRemainingCalories(calorieData.remainingCalories || 0);
+            setCompletedMeals(calorieData.completedMeals || 0);
+            setTotalMeals(calorieData.totalMeals || 0);
+          } else {
+            console.log('❌ HomeScreen: Invalid calorie data received');
+            resetCalorieData();
+          }
+        } catch (error) {
+          console.error('❌ HomeScreen: Error calculating today intake:', error);
+          resetCalorieData();
+        }
+      } else {
+        console.log('📊 HomeScreen: No ongoing plans found or invalid array, resetting calorie data');
+        console.log('📊 HomeScreen: ongoingPlans value:', ongoingPlans);
+        console.log('📊 HomeScreen: Array.isArray check:', Array.isArray(ongoingPlans));
+        console.log('📊 HomeScreen: Length check:', ongoingPlans?.length);
+        resetCalorieData();
+      }
     } catch (error) {
-      console.error('Error checking meal plan status:', error);
+      console.error('❌ HomeScreen: Error checking meal plan status:', error);
+      console.error('❌ HomeScreen: Error stack:', error.stack);
+
+      // Reset all states to safe defaults pada error
+      setHasMealPlan(false);
+      setMealPlanCount(0);
+      resetCalorieData();
     } finally {
       setMealPlanLoading(false);
     }
@@ -52,11 +166,9 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   // Handle banner press
   const handleMealPlanBannerPress = () => {
     if (hasMealPlan) {
-      // Navigate to Plans screen if user has meal plan
       onNavigate('Plans');
     } else {
-      // Navigate to meal plan form if user doesn't have meal plan
-      onNavigate('Add'); // atau ganti dengan nama screen form Anda
+      onNavigate('Add');
     }
   };
 
@@ -65,13 +177,37 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     checkMealPlanStatus();
   }, []);
 
-  // PENTING: Tambahkan useFocusEffect untuk refresh saat screen di-focus
+  // Refresh when screen is focused
   useFocusEffect(
     React.useCallback(() => {
-      console.log('HomeScreen focused, checking meal plan status...'); // Debug log
-      checkMealPlanStatus();
+      console.log('🏠 HomeScreen focused, refreshing data...');
+
+      // Wrap dalam timeout untuk menghindari race condition
+      const timeoutId = setTimeout(() => {
+        checkMealPlanStatus().catch((error) => {
+          console.error('❌ Error in useFocusEffect:', error);
+        });
+      }, 100);
+
+      return () => {
+        clearTimeout(timeoutId);
+      };
     }, [])
   );
+
+  // Auto-refresh every minute to update daily data
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      // Refresh at the start of each day (00:00)
+      if (now.getHours() === 0 && now.getMinutes() === 0) {
+        console.log('🌅 New day detected, refreshing meal plan data...');
+        checkMealPlanStatus();
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Improved auto slide functions
   const startAutoSlide = () => {
@@ -262,6 +398,14 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     };
   }, []);
 
+  // Log initial state untuk debugging
+  useEffect(() => {
+    console.log('🏠 HomeScreen mounted with initial states:');
+    console.log('- mealPlanLoading:', mealPlanLoading);
+    console.log('- hasMealPlan:', hasMealPlan);
+    console.log('- mealPlanCount:', mealPlanCount);
+  }, []);
+
   const bannerImages = [
     {
       uri: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=400&h=200&fit=crop',
@@ -277,33 +421,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       uri: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=200&fit=crop',
       title: 'Meal Planning Made Easy',
       subtitle: 'Customize your perfect diet plan',
-    },
-  ];
-
-  const featuredItems = [
-    {
-      id: 1,
-      title: 'Healthy Breakfast',
-      description: 'Start your day right',
-      image: 'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?w=300&h=150&fit=crop',
-    },
-    {
-      id: 2,
-      title: 'Fresh Salads',
-      description: 'Nutritious & delicious',
-      image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&h=150&fit=crop',
-    },
-    {
-      id: 3,
-      title: 'Protein Power',
-      description: 'Build your strength',
-      image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=300&h=150&fit=crop',
-    },
-    {
-      id: 4,
-      title: 'Smooth Drinks',
-      description: 'Refreshing & healthy',
-      image: 'https://images.unsplash.com/photo-1553830591-fddf9c537f2a?w=300&h=150&fit=crop',
     },
   ];
 
@@ -364,43 +481,64 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
           </View>
         </View>
 
-        {/* Quick Stats - Updated Target Calories Card */}
+        {/* Updated Quick Stats - Dynamic Calories dengan error handling */}
         <View style={styles.statsSection}>
           <Text style={styles.sectionTitle}>Your Progress Today</Text>
           <View style={styles.statsGrid}>
-            {/* Intake Calories Card */}
+            {/* Intake Calories Card - Dynamic */}
             <View style={styles.statCard}>
               <View style={styles.statHeader}>
                 <Text style={styles.statIcon}>📊</Text>
                 <Text style={styles.statLabel}>Intake Calories</Text>
               </View>
-              <Text style={styles.statNumber}>850</Text>
+              <Text style={styles.statNumber}>
+                {mealPlanLoading ? '...' : (intakeCalories || 0).toLocaleString()}
+              </Text>
               <View style={styles.progressContainer}>
                 <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: '71%' }]} />
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${Math.min(intakePercentage || 0, 100)}%` },
+                    ]}
+                  />
                 </View>
-                <Text style={styles.progressText}>71% of target</Text>
+                <Text style={styles.progressText}>
+                  {mealPlanLoading ? 'Loading...' : `${intakePercentage || 0}% of target`}
+                </Text>
+                {!mealPlanLoading && (
+                  <Text style={styles.mealsText}>
+                    {completedMeals || 0}/{totalMeals || 0} meals completed
+                  </Text>
+                )}
               </View>
             </View>
 
-            {/* Target Calories Card - Redesigned */}
+            {/* Target Calories Card - Dynamic */}
             <View style={[styles.statCard, styles.targetCard]}>
               <View style={styles.statHeader}>
                 <Text style={styles.targetIcon}>🎯</Text>
                 <Text style={styles.statLabel}>Target Calories</Text>
               </View>
-              <Text style={styles.targetNumber}>1,200</Text>
+              <Text style={styles.targetNumber}>
+                {mealPlanLoading ? '...' : (targetCalories || 0).toLocaleString()}
+              </Text>
               <View style={styles.targetInfo}>
                 <View style={styles.targetBadge}>
                   <Text style={styles.targetBadgeText}>Daily Goal</Text>
                 </View>
-                <Text style={styles.remainingText}>350 remaining</Text>
+                <Text style={styles.remainingText}>
+                  {mealPlanLoading ? 'Loading...' : `${remainingCalories || 0} remaining`}
+                </Text>
+                {!mealPlanLoading && (targetCalories || 0) === 0 && (
+                  <Text style={styles.noDataText}>No active meal plan</Text>
+                )}
               </View>
             </View>
           </View>
         </View>
 
-        {/* Action Cards - Update this section */}
+        {/* Action Cards - keep existing with dynamic meal plan status */}
         <View style={styles.actionSection}>
           <View style={styles.actionRow}>
             {/* Dynamic Meal Plan Card */}
@@ -439,7 +577,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               </View>
             </TouchableOpacity>
 
-            {/* Exercise Plan Card - tetap sama */}
+            {/* Exercise Plan Card - keep existing */}
             <TouchableOpacity
               style={styles.actionCard}
               onPress={() => onNavigate('MealPlanAndExercise')}>
@@ -461,7 +599,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
           </View>
         </View>
 
-        {/* Upload Image Section - Single clickable banner */}
+        {/* Upload Image Section - keep existing */}
         <View style={styles.uploadSection}>
           <Text style={styles.sectionTitle}>Meal Planning</Text>
           <TouchableOpacity style={styles.uploadBannerCard}>
@@ -1066,5 +1204,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#15803D', // Dark green text
     textAlign: 'center',
+  },
+  mealsText: {
+    fontSize: 9,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  noDataText: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+    marginTop: 2,
   },
 });

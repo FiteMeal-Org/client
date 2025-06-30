@@ -98,7 +98,7 @@ export default function PlansScreen({ onNavigate, navigation }: PlansScreenProps
       console.log('🔍 Loading meal plans...');
       //   console.log(token, "<<<<<<<<<<<<<<");
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/${API_CONFIG.ENDPOINTS.PREP_MEAL}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PREP_MEAL}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
