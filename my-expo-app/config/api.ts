@@ -8,6 +8,7 @@ export const API_CONFIG = {
     PROFILE_BY_ID: (id: string) => `/api/profiles/${id}`, // Helper function
     UPLOAD: '/api/upload',
     PREP_MEAL: '/api/add-prepmeal',
+    EXERCISE: '/api/excercise',
   },
 };
 
