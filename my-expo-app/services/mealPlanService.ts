@@ -33,18 +33,24 @@ export const checkUserMealPlan = async (): Promise<{
     const result = await response.json();
     console.log('📄 API Response data:', result);
 
-    const mealPlanCount = result.data?.length || 0;
-    console.log('📊 Meal plan count:', mealPlanCount);
+    // Handle new data structure with ongoing and upcoming
+    const ongoingCount = result.data?.ongoing?.length || 0;
+    const upcomingCount = result.data?.upcoming?.length || 0;
+    const totalCount = ongoingCount + upcomingCount;
 
-    const hasMealPlan = mealPlanCount > 0;
+    console.log('📊 Ongoing meal plans:', ongoingCount);
+    console.log('📊 Upcoming meal plans:', upcomingCount);
+    console.log('📊 Total meal plan count:', totalCount);
+
+    const hasMealPlan = totalCount > 0;
     console.log('✅ Has meal plan:', hasMealPlan);
 
     return {
       hasMealPlan: hasMealPlan,
-      mealPlanCount: mealPlanCount,
+      mealPlanCount: totalCount,
     };
   } catch (error) {
-    console.error('💥 Error checking meal plan:', error);
+    // console.error('💥 Error checking meal plan:', error);
     return { hasMealPlan: false, mealPlanCount: 0 };
   }
 };
