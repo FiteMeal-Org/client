@@ -9,8 +9,11 @@ import SearchScreen from '../screens/SearchScreen';
 import PlansScreen from '../screens/PlansScreen';
 import AccountScreen from '../screens/AccountScreen';
 import AddPlanScreen from '../screens/AddPlanScreen';
+import AddExerciseScreen from '../screens/AddExerciseScreen';
+import PlanSelectionScreen from '../screens/PlanSelectionScreen';
 import ProfileFormScreen from '../screens/ProfileFormScreen';
 import UploadImageScreen from '../screens/UploadImageScreen';
+import MealExercisePlanScreen from '../screens/MealExercisePlanScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -61,7 +64,13 @@ export default function BerandaNavigator() {
               tabBarLabel: 'Home',
             }}>
             {(props) => (
-              <HomeScreen {...props} onNavigate={(screen) => props.navigation.navigate(screen)} />
+              <HomeScreen
+                {...props}
+                onNavigate={(screen) => {
+                  console.log('🧭 Navigation requested to screen:', screen);
+                  props.navigation.navigate(screen);
+                }}
+              />
             )}
           </Tab.Screen>
           <Tab.Screen
@@ -78,15 +87,15 @@ export default function BerandaNavigator() {
               tabBarLabel: 'Plans',
             }}>
             {(props) => (
-              <PlansScreen 
-                {...props} 
-                onNavigate={(screen, params) => {
+              <PlansScreen
+                {...props}
+                onNavigate={(screen: string, params?: any) => {
                   if (params) {
                     props.navigation.navigate(screen, params);
                   } else {
                     props.navigation.navigate(screen);
                   }
-                }} 
+                }}
               />
             )}
           </Tab.Screen>
@@ -147,6 +156,26 @@ export default function BerandaNavigator() {
             )}
           </Tab.Screen>
 
+          {/* Add PlanSelection screen (hidden from tab bar) */}
+          <Tab.Screen
+            name="PlanSelection"
+            component={PlanSelectionScreen}
+            options={{
+              tabBarButton: () => null, // Hide from tab bar
+              headerShown: false,
+            }}
+          />
+
+          {/* Add AddExercise screen (hidden from tab bar) */}
+          <Tab.Screen
+            name="AddExercise"
+            component={AddExerciseScreen}
+            options={{
+              tabBarButton: () => null, // Hide from tab bar
+              headerShown: false,
+            }}
+          />
+
           {/* Add ProfileForm screen (hidden from tab bar) */}
           <Tab.Screen
             name="ProfileForm"
@@ -160,6 +189,16 @@ export default function BerandaNavigator() {
               />
             )}
           </Tab.Screen>
+
+          {/* Add MealExercisePlan screen (hidden from tab bar) */}
+          <Tab.Screen
+            name="MealExercisePlan"
+            component={MealExercisePlanScreen}
+            options={{
+              tabBarButton: () => null, // Hide from tab bar
+              headerShown: false,
+            }}
+          />
         </Tab.Navigator>
       </SafeAreaView>
     </SafeAreaProvider>

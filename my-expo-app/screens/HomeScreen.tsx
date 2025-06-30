@@ -61,10 +61,10 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
       // PASTIKAN await di sini
       const result = await checkUserMealPlan();
-      
+
       console.log('📊 HomeScreen: Raw result received from API:', result);
       console.log('📊 HomeScreen: Result type:', typeof result);
-      
+
       if (result) {
         console.log('📊 HomeScreen: Result keys:', Object.keys(result));
         console.log('📊 HomeScreen: Complete result object:', JSON.stringify(result, null, 2));
@@ -168,7 +168,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     if (hasMealPlan) {
       onNavigate('Plans');
     } else {
-      onNavigate('Add');
+      onNavigate('PlanSelection');
     }
   };
 
@@ -448,7 +448,11 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
         {/* Banner with Swipe Support */}
         <View style={styles.bannerSection}>
-          <View style={styles.bannerContainer} {...panResponder.panHandlers}>
+          <TouchableOpacity
+            style={styles.bannerContainer}
+            onPress={handleMealPlanBannerPress}
+            activeOpacity={0.9}
+            {...panResponder.panHandlers}>
             <Animated.Image
               source={{ uri: bannerImages[currentBannerIndex].uri }}
               style={[
@@ -469,7 +473,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               <Text style={styles.bannerTitle}>{bannerImages[currentBannerIndex].title}</Text>
               <Text style={styles.bannerSubtitle}>{bannerImages[currentBannerIndex].subtitle}</Text>
             </Animated.View>
-          </View>
+          </TouchableOpacity>
           <View style={styles.bannerIndicators}>
             {bannerImages.map((_, index) => (
               <TouchableOpacity
@@ -580,7 +584,11 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             {/* Exercise Plan Card - keep existing */}
             <TouchableOpacity
               style={styles.actionCard}
-              onPress={() => onNavigate('MealPlanAndExercise')}>
+              onPress={() => {
+                console.log('🏃‍♂️ GET MEAL & EXERCISE PLAN button pressed!');
+                onNavigate('MealExercisePlan');
+              }}
+              activeOpacity={0.8}>
               <Image
                 source={{
                   uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=200&h=120&fit=crop',

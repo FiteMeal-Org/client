@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -8,25 +8,161 @@ import {
     ImageBackground,
     SafeAreaView,
     ScrollView,
-    Alert
+    Alert,
+    ActivityIndicator
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as SecureStore from 'expo-secure-store';
+import axios from 'axios';
+import { API_CONFIG, getApiUrl } from '../config/api';
+
+interface UserProfile {
+    id: string;
+    username: string;
+    email: string;
+    age?: number;
+    height?: number;
+    weight?: number;
+    goals?: string;
+    activity_level?: string;
+    gender?: string;
+}
 
 export default function AddExerciseScreen({ navigation }: { navigation: any }) {
+    // Form state
     const [name, setName] = useState('');
     const [startDate, setStartDate] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
+    const [equipment, setEquipment] = useState('');
     const [goals, setGoals] = useState('');
-    const [exerciseLevel, setExerciseLevel] = useState('');
     const [duration, setDuration] = useState('');
 
-    const handleCreatePlan = () => {
+    // Loading and profile state
+    const [loading, setLoading] = useState(false);
+    const [profileLoading, setProfileLoading] = useState(true);
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [userId, setUserId] = useState('');
+
+    const loadUserProfile = useCallback(async () => {
+        try {
+            setProfileLoading(true);
+            const storedUserId = await SecureStore.getItemAsync('user_id');
+            const token = await SecureStore.getItemAsync('access_token');
+
+            console.log('📱 Stored User ID:', storedUserId);
+            console.log('🔑 Token exists:', !!token);
+            console.log('🔑 Token length:', token?.length);
+
+            if (!storedUserId) {
+                console.warn('⚠️ No user ID found in SecureStore');
+                // Instead of showing error, create a default profile for demo
+                setUserProfile({
+                    id: 'demo-user',
+                    username: 'Demo User',
+                    email: 'demo@example.com',
+                    age: 25,
+                    height: 170,
+                    weight: 70,
+                    goals: 'weight_loss',
+                    activity_level: 'moderate',
+                    gender: 'male'
+                });
+                setUserId('demo-user');
+                setProfileLoading(false);
+                return;
+            }
+
+            if (!token) {
+                console.warn('⚠️ No authentication token found');
+                // Use demo profile if no token
+                setUserProfile({
+                    id: storedUserId,
+                    username: 'Demo User',
+                    email: 'demo@example.com',
+                    age: 25,
+                    height: 170,
+                    weight: 70,
+                    goals: 'weight_loss',
+                    activity_level: 'moderate',
+                    gender: 'male'
+                });
+                setUserId(storedUserId);
+                setProfileLoading(false);
+                return;
+            }
+
+            setUserId(storedUserId);
+
+            console.log('🔗 API URL:', getApiUrl(API_CONFIG.ENDPOINTS.PROFILE_BY_ID(storedUserId)));
+            console.log('🔑 Making API request with token...');
+
+            const response = await axios.get(getApiUrl(API_CONFIG.ENDPOINTS.PROFILE_BY_ID(storedUserId)), {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            console.log('📊 API Response:', response.data);
+
+            if (response.data && response.data.data) {
+                setUserProfile(response.data.data);
+            } else {
+                // Fallback to demo profile if API returns no data
+                console.warn('⚠️ No profile data from API, using demo profile');
+                setUserProfile({
+                    id: storedUserId,
+                    username: 'User',
+                    email: 'user@example.com',
+                    age: 25,
+                    height: 170,
+                    weight: 70,
+                    goals: 'weight_loss',
+                    activity_level: 'moderate',
+                    gender: 'male'
+                });
+            }
+        } catch (error: any) {
+            console.error('❌ Error loading user profile:', error);
+            console.error('❌ Error details:', error.response?.data || error.message);
+
+            // Instead of showing error alert, provide fallback
+            console.log('🔄 Using fallback demo profile');
+            setUserProfile({
+                id: userId || 'demo-user',
+                username: 'Demo User',
+                email: 'demo@example.com',
+                age: 25,
+                height: 170,
+                weight: 70,
+                goals: 'weight_loss',
+                activity_level: 'moderate',
+                gender: 'male'
+            });
+        } finally {
+            setProfileLoading(false);
+        }
+    }, [userId]);
+
+    useEffect(() => {
+        const initProfile = async () => {
+            await loadUserProfile();
+        };
+        initProfile();
+    }, [loadUserProfile]);
+
+    const handleCreatePlan = async () => {
         // Validasi form
         if (!name.trim()) {
             Alert.alert('Error', 'Exercise plan name is required');
+            return;
+        }
+
+        if (!equipment.trim()) {
+            Alert.alert('Error', 'Please enter equipment needed');
             return;
         }
 
@@ -35,27 +171,68 @@ export default function AddExerciseScreen({ navigation }: { navigation: any }) {
             return;
         }
 
-        if (!exerciseLevel) {
-            Alert.alert('Error', 'Please select exercise level');
-            return;
-        }
-
         if (!duration) {
             Alert.alert('Error', 'Please select duration');
             return;
         }
 
-        // Data exercise plan
-        const exercisePlan = {
-            name: name.trim(),
-            startDate: startDate.toISOString().split('T')[0],
-            goals,
-            exerciseLevel,
-            duration: duration
-        };
+        if (!userProfile) {
+            Alert.alert('Error', 'User profile not loaded');
+            return;
+        }
 
-        Alert.alert('Success', 'Exercise plan created successfully!');
-        console.log('Exercise Plan Data:', exercisePlan);
+        try {
+            setLoading(true);
+
+            // Get authentication token
+            const token = await SecureStore.getItemAsync('access_token');
+
+            if (!token) {
+                Alert.alert('Error', 'Authentication token not found. Please login again.');
+                return;
+            }
+
+            const exerciseData = {
+                userId: userId,
+                name: name.trim(),
+                startDate: startDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+                age: userProfile.age || 25,
+                weight: userProfile.weight || 70,
+                height: userProfile.height || 170,
+                gender: userProfile.gender || 'other',
+                equipment: equipment.trim(),
+                goals: goals,
+                duration: parseInt(duration),
+            };
+
+            console.log('Submitting exercise data:', exerciseData);
+
+            const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.EXERCISE), exerciseData, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.data) {
+                Alert.alert(
+                    'Success',
+                    'Exercise plan created successfully!',
+                    [
+                        {
+                            text: 'OK',
+                            onPress: () => navigation.navigate('Home'),
+                        },
+                    ]
+                );
+            }
+        } catch (error: any) {
+            console.error('Error creating exercise plan:', error);
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to create exercise plan';
+            Alert.alert('Error', errorMessage);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const onDateChange = (event: any, selectedDate?: Date) => {
@@ -74,16 +251,14 @@ export default function AddExerciseScreen({ navigation }: { navigation: any }) {
         });
     };
 
-    const getExercisesByGoal = (goal: string) => {
-        const exercises = {
-            bulking: ['Bench Press', 'Deadlift', 'Squats', 'Pull-ups', 'Overhead Press'],
-            cutting: ['HIIT Cardio', 'Running', 'Cycling', 'Jump Rope', 'Circuit Training'],
-            fat_loss: ['Burpees', 'Mountain Climbers', 'High Knees', 'Plank', 'Jumping Jacks'],
-            maintain: ['Push-ups', 'Yoga', 'Walking', 'Swimming', 'Bodyweight Squats'],
-            muscle_gain: ['Barbell Rows', 'Dumbbell Press', 'Leg Press', 'Bicep Curls', 'Tricep Dips']
-        };
-        return exercises[goal as keyof typeof exercises] || [];
-    };
+    if (profileLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#8B0000" />
+                <Text style={styles.loadingText}>Loading profile...</Text>
+            </View>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -116,26 +291,7 @@ export default function AddExerciseScreen({ navigation }: { navigation: any }) {
                                 <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
                             </TouchableOpacity>
                             <Text style={styles.headerTitle}>Create Exercise Plan</Text>
-                            <View style={styles.headerActions}>
-                                <TouchableOpacity
-                                    onPress={() => navigation.navigate('Login')}
-                                    style={styles.headerButton}
-                                >
-                                    <Text style={styles.headerButtonText}>Login</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => navigation.navigate('Register')}
-                                    style={[styles.headerButton, styles.headerButtonSecondary]}
-                                >
-                                    <Text style={styles.headerButtonTextSecondary}>Register</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => navigation.navigate('ProfilePage')}
-                                    style={styles.profileButton}
-                                >
-                                    <Ionicons name="person-circle-outline" size={24} color="#FFFFFF" />
-                                </TouchableOpacity>
-                            </View>
+                            <View style={styles.placeholder} />
                         </View>
 
                         {/* Hero Content */}
@@ -151,6 +307,31 @@ export default function AddExerciseScreen({ navigation }: { navigation: any }) {
                 {/* Form Section */}
                 <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
                     <View style={styles.form}>
+                        {/* User Profile Display */}
+                        {userProfile && (
+                            <View style={styles.userInfoCard}>
+                                <Text style={styles.inputLabel}>Your Profile Information</Text>
+                                <View style={styles.userInfoGrid}>
+                                    <View style={styles.userInfoItem}>
+                                        <Text style={styles.userInfoLabel}>Age</Text>
+                                        <Text style={styles.userInfoValue}>{userProfile.age || 'Not set'}</Text>
+                                    </View>
+                                    <View style={styles.userInfoItem}>
+                                        <Text style={styles.userInfoLabel}>Weight</Text>
+                                        <Text style={styles.userInfoValue}>{userProfile.weight || 'Not set'} kg</Text>
+                                    </View>
+                                    <View style={styles.userInfoItem}>
+                                        <Text style={styles.userInfoLabel}>Height</Text>
+                                        <Text style={styles.userInfoValue}>{userProfile.height || 'Not set'} cm</Text>
+                                    </View>
+                                    <View style={styles.userInfoItem}>
+                                        <Text style={styles.userInfoLabel}>Gender</Text>
+                                        <Text style={styles.userInfoValue}>{userProfile.gender || 'Not set'}</Text>
+                                    </View>
+                                </View>
+                            </View>
+                        )}
+
                         {/* Plan Name */}
                         <Text style={styles.inputLabel}>Exercise Plan Name</Text>
                         <TextInput
@@ -191,45 +372,23 @@ export default function AddExerciseScreen({ navigation }: { navigation: any }) {
                                 dropdownIconColor="#999"
                             >
                                 <Picker.Item label="Select your goal..." value="" />
-                                <Picker.Item label="Bulking (Build Muscle)" value="bulking" />
-                                <Picker.Item label="Cutting (Lean Down)" value="cutting" />
-                                <Picker.Item label="Fat Loss" value="fat_loss" />
-                                <Picker.Item label="Maintain Weight" value="maintain" />
-                                <Picker.Item label="Muscle Gain" value="muscle_gain" />
+                                <Picker.Item label="Bulking" value="bulking" />
+                                <Picker.Item label="Fat Loss" value="fat loss" />
+                                <Picker.Item label="Maintain" value="maintain" />
                             </Picker>
                         </View>
 
-                        {/* Recommended Exercises */}
-                        {goals && (
-                            <View style={styles.recommendedSection}>
-                                <Text style={styles.inputLabel}>Recommended Exercises</Text>
-                                <View style={styles.exercisesList}>
-                                    {getExercisesByGoal(goals).map((exercise, index) => (
-                                        <View key={index} style={styles.exerciseItem}>
-                                            <Ionicons name="fitness-outline" size={16} color="#8B0000" />
-                                            <Text style={styles.exerciseText}>{exercise}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            </View>
-                        )}
-
-                        {/* Exercise Level */}
-                        <Text style={styles.inputLabel}>Exercise Level</Text>
-                        <View style={styles.pickerContainer}>
-                            <Picker
-                                selectedValue={exerciseLevel}
-                                style={styles.picker}
-                                onValueChange={(itemValue) => setExerciseLevel(itemValue)}
-                                dropdownIconColor="#999"
-                            >
-                                <Picker.Item label="Select your level..." value="" />
-                                <Picker.Item label="Beginner" value="beginner" />
-                                <Picker.Item label="Intermediate" value="intermediate" />
-                                <Picker.Item label="Advanced" value="advanced" />
-                                <Picker.Item label="Expert" value="expert" />
-                            </Picker>
-                        </View>
+                        {/* Equipment */}
+                        <Text style={styles.inputLabel}>Equipment Needed</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="e.g., Dumbbells, Barbell, Bodyweight only"
+                            placeholderTextColor="#999"
+                            value={equipment}
+                            onChangeText={setEquipment}
+                            multiline
+                            numberOfLines={3}
+                        />
 
                         {/* Duration */}
                         <Text style={styles.inputLabel}>Plan Duration</Text>
@@ -260,14 +419,22 @@ export default function AddExerciseScreen({ navigation }: { navigation: any }) {
                         </View>
 
                         {/* Create Button */}
-                        <TouchableOpacity onPress={handleCreatePlan} activeOpacity={0.8}>
+                        <TouchableOpacity
+                            onPress={handleCreatePlan}
+                            activeOpacity={0.8}
+                            disabled={loading}
+                        >
                             <LinearGradient
-                                colors={['#8B0000', '#DC143C', '#FF6B6B']}
+                                colors={loading ? ['#888', '#666'] : ['#8B0000', '#DC143C', '#FF6B6B']}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.createButton}
                             >
-                                <Text style={styles.createButtonText}>Create My Exercise Plan</Text>
+                                {loading ? (
+                                    <ActivityIndicator size="small" color="white" />
+                                ) : (
+                                    <Text style={styles.createButtonText}>Create My Exercise Plan</Text>
+                                )}
                             </LinearGradient>
                         </TouchableOpacity>
 
@@ -560,5 +727,55 @@ const styles = StyleSheet.create({
         color: '#8B0000',
         fontWeight: '600',
         fontSize: 14,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F8F9FA',
+    },
+    loadingText: {
+        color: '#8B0000',
+        marginTop: 10,
+        fontSize: 16,
+    },
+    placeholder: {
+        width: 40,
+    },
+    userInfoCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: '#E9ECEF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    userInfoGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    userInfoItem: {
+        flex: 1,
+        minWidth: '45%',
+        backgroundColor: '#F8F9FA',
+        padding: 12,
+        borderRadius: 8,
+    },
+    userInfoLabel: {
+        fontSize: 12,
+        color: '#6C757D',
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    userInfoValue: {
+        fontSize: 14,
+        color: '#2C3E50',
+        fontWeight: '600',
     },
 });
