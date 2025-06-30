@@ -4,14 +4,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-// import HomeScreen from '../screens/HomeScreen';
-// import SearchScreen from '../screens/SearchScreen';
-// import PlansScreen from '../screens/PlansScreen';
-// import AccountScreen from '../screens/AccountScreen';
-// import AddPlanScreen from '../screens/AddPlanScreen';
-// import ProfileFormScreen from '../screens/ProfileFormScreen';
-// import UploadImageScreen from '../screens/UploadImageScreen';
 import HomeScreen from '../screens/HomeScreen';
+import SearchScreen from '../screens/SearchScreen';
+import PlansScreen from '../screens/PlansScreen';
+import AccountScreen from '../screens/AccountScreen';
+import AddPlanScreen from '../screens/AddPlanScreen';
+import ProfileFormScreen from '../screens/ProfileFormScreen';
+// import UploadImageScreen from 'screens/UploadImageScreen';
+import UploadImageScreen from '../screens/UploadImageScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -65,7 +65,7 @@ export default function BerandaNavigator() {
                     >
                         {(props) => <HomeScreen {...props} onNavigate={(screen) => props.navigation.navigate(screen)} />}
                     </Tab.Screen>
-                    {/* <Tab.Screen
+                    <Tab.Screen
                         name="Search"
                         component={SearchScreen}
                         options={{
@@ -132,7 +132,35 @@ export default function BerandaNavigator() {
                         }}
                     >
                         {(props) => <AccountScreen {...props} onNavigate={(screen) => props.navigation.navigate(screen)} />}
-                    </Tab.Screen> */}
+                    </Tab.Screen>
+
+                    {/* Hapus screen duplikat AddPlan ini */}
+                    {/* <Tab.Screen
+            name="AddPlan"
+            component={AddPlanScreen}
+            options={{
+              tabBarButton: () => null,
+              headerShown: false,
+            }}
+          /> */}
+
+                    {/* <Tab.Screen
+            name="ProfileFormScreen"
+            component={ProfileFormScreen}
+            options={{
+              tabBarButton: () => null,
+              headerShown: false,
+            }}
+          /> */}
+
+                    {/* <Tab.Screen
+            name="UploadImageScreen"
+            component={UploadImageScreen}
+            options={{
+              tabBarButton: () => null,
+              headerShown: false,
+            }}
+          /> */}
                 </Tab.Navigator>
             </SafeAreaView>
         </SafeAreaProvider>
