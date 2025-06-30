@@ -66,14 +66,11 @@ export default function PlansScreen({ onNavigate }: PlansScreenProps) {
   const loadPrepMeals = async () => {
     try {
       setLoading(true);
-      // Ubah dari 'userToken' ke 'access_token' sesuai dengan LoginScreen
       const token = await SecureStore.getItemAsync('access_token');
-
-      console.log('Retrieved token:', token ? 'Token exists' : 'No token found');
 
       if (!token) {
         Alert.alert('Error', 'No authentication token found. Please login again.');
-        onNavigate('Login'); // atau gunakan navigation.navigate('Login')
+        onNavigate('Login');
         return;
       }
 
@@ -98,7 +95,24 @@ export default function PlansScreen({ onNavigate }: PlansScreenProps) {
       const result = await response.json();
       setPrepMealData(result.data);
       if (result.data.length > 0) {
-        setSelectedPrepMeal(result.data[0]); // Select first meal plan by default
+        setSelectedPrepMeal(result.data[0]);
+      } else {
+        // Jika tidak ada meal plan, redirect ke form
+        Alert.alert(
+          'No Meal Plan Found',
+          "You don't have any meal plans yet. Would you like to create one?",
+          [
+            {
+              text: 'Cancel',
+              onPress: () => onNavigate('Home'),
+              style: 'cancel',
+            },
+            {
+              text: 'Create Plan',
+              onPress: () => onNavigate('Add'), // Ganti dengan nama screen form Anda
+            },
+          ]
+        );
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to load meal plans');
