@@ -6,6 +6,7 @@ export const API_CONFIG = {
         REGISTER: '/api/register',
         PROFILES: '/api/profiles',
         UPLOAD: '/api/upload',
+        PREP_MEAL: '/api/add-prepmeal/',
     },
 };
 
