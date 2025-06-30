@@ -75,11 +75,12 @@ export default function BerandaNavigator() {
 
                     <Tab.Screen
                         name="Plans"
-                        component={PlansScreen}
                         options={{
                             tabBarLabel: 'Plans'
                         }}
-                    />
+                    >
+                        {(props) => <PlansScreen {...props} onNavigate={(screen) => props.navigation.navigate(screen)} />}
+                    </Tab.Screen>
                     <Tab.Screen
                         name="Add"
                         component={AddPlanScreen}
