@@ -2,16 +2,12 @@ import React, { createContext, useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
-// import RegisterScreen from './screens/RegisterScreen';
-// import LoginScreen from './screens/LoginScreen';
-// import BerandaNavigator from 'navigators/BerandaNavigator';
+import RegisterScreen from './screens/RegisterScreen';
+import LoginScreen from './screens/LoginScreen';
+import BerandaNavigator from 'navigators/BerandaNavigator';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import LoginScreen from './screens/LoginScreen';
-import RegisterScreen from './screens/RegisterScreen';
-import BerandaNavigator from 'navigators/BerandaNavigator';
-//set up awal project
 
 type IAuthContext = {
   token: string | null,
