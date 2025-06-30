@@ -46,7 +46,7 @@ export default function AccountScreen({ onNavigate }: AccountScreenProps) {
     }
   };
 
-  // Ubah function ini untuk redirect ke ProfileFormScreen
+  // Function untuk redirect ke ProfileFormScreen
   const handleEditProfile = () => {
     onNavigate('ProfileForm'); // Redirect ke ProfileFormScreen
   };
@@ -89,20 +89,18 @@ export default function AccountScreen({ onNavigate }: AccountScreenProps) {
           </TouchableOpacity>
         </View>
 
-        {/* Profile Section */}
+        {/* Profile Section - Hapus camera button */}
         <View style={styles.profileSection}>
           <View style={styles.profileImageContainer}>
             <Image
-              source={{
-                uri:
-                  profile?.profilePicture ||
-                  'https://via.placeholder.com/120x120/8B4A6B/FFFFFF?text=User',
-              }}
+              source={
+                profile?.profilePicture
+                  ? { uri: profile.profilePicture }
+                  : require('../assets/istockphoto-1130884625-612x612.jpg') // Gunakan asset image
+              }
               style={styles.profileImage}
             />
-            <TouchableOpacity style={styles.cameraButton} onPress={handleEditProfile}>
-              <Ionicons name="camera" size={16} color="white" />
-            </TouchableOpacity>
+            {/* Camera button dihapus */}
           </View>
 
           <Text style={styles.userName}>
@@ -165,14 +163,8 @@ export default function AccountScreen({ onNavigate }: AccountScreenProps) {
           </View>
         </View>
 
-        {/* Action Buttons */}
+        {/* Action Buttons - Hapus edit profile button, hanya logout */}
         <View style={styles.actionSection}>
-          {/* Tombol Edit Profile */}
-          <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
-            <Ionicons name="create-outline" size={20} color="white" />
-            <Text style={styles.editProfileButtonText}>Edit Profile</Text>
-          </TouchableOpacity>
-
           {/* Tombol Logout */}
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color="#EF4444" />
@@ -254,8 +246,8 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   profileImageContainer: {
-    position: 'relative',
     marginBottom: 16,
+    // Hapus position: 'relative' karena tidak ada camera button
   },
   profileImage: {
     width: 120,
@@ -263,19 +255,7 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     backgroundColor: '#E5E7EB',
   },
-  cameraButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#8B4A6B',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: 'white',
-  },
+  // Camera button styles dihapus
   userName: {
     fontSize: 22,
     fontWeight: 'bold',
@@ -333,28 +313,9 @@ const styles = StyleSheet.create({
   },
   actionSection: {
     paddingHorizontal: 20,
-    paddingBottom: 100, // Extra space for tab bar
+    paddingBottom: 30, // Reduced padding since no more edit button
   },
-  editProfileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#8B4A6B',
-    borderRadius: 12,
-    paddingVertical: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  editProfileButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
+  // Edit profile button styles dihapus
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
