@@ -12,14 +12,11 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { getUserProfile, UserProfile } from '../services/profileService';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
 
-type AccountScreenProps = {
-  onNavigate: (screen: string) => void;
-};
-
-export default function AccountScreen({ onNavigate }: AccountScreenProps) {
+export default function AccountScreen() {
+  const navigation = useNavigation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -48,7 +45,7 @@ export default function AccountScreen({ onNavigate }: AccountScreenProps) {
 
   // Function untuk redirect ke ProfileFormScreen
   const handleEditProfile = () => {
-    onNavigate('ProfileForm'); // Redirect ke ProfileFormScreen
+    navigation.navigate('ProfileForm' as never); // Redirect ke ProfileFormScreen
   };
 
   const handleLogout = async () => {
@@ -61,7 +58,7 @@ export default function AccountScreen({ onNavigate }: AccountScreenProps) {
           // Clear tokens and navigate to login
           await SecureStore.deleteItemAsync('access_token');
           await SecureStore.deleteItemAsync('user_id');
-          onNavigate('Login');
+          navigation.navigate('Login' as never);
         },
       },
     ]);
