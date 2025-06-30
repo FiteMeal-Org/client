@@ -2,16 +2,16 @@ import * as SecureStore from 'expo-secure-store';
 
 const BASE_URL = 'https://fh8mlxkf-3000.asse.devtunnels.ms';
 
-// HAPUS SEMUA function checkUserMealPlan yang lama! 
+// HAPUS SEMUA function checkUserMealPlan yang lama!
 // PASTIKAN HANYA ADA SATU function ini di file
 
 export const checkUserMealPlan = async () => {
   console.log('🔍 START: NEW checkUserMealPlan function called');
   console.log('🔍 TIMESTAMP:', new Date().toISOString());
-  
+
   try {
     const token = await SecureStore.getItemAsync('access_token');
-    
+
     if (!token) {
       console.log('❌ No access token found');
       throw new Error('No access token found');
@@ -22,7 +22,7 @@ export const checkUserMealPlan = async () => {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
@@ -54,7 +54,7 @@ export const checkUserMealPlan = async () => {
     console.log('🔍 STEP 3: Extracting ongoing and upcoming arrays...');
     const ongoing = Array.isArray(data.ongoing) ? data.ongoing : [];
     const upcoming = Array.isArray(data.upcoming) ? data.upcoming : [];
-    
+
     console.log('📄 STEP 3: Processed ongoing length:', ongoing.length);
     console.log('📄 STEP 3: Processed upcoming length:', upcoming.length);
 
@@ -65,23 +65,22 @@ export const checkUserMealPlan = async () => {
       mealPlanCount: ongoing.length + upcoming.length,
       ongoingPlans: ongoing,
       upcomingPlans: upcoming,
-      allPlans: [...ongoing, ...upcoming]
+      allPlans: [...ongoing, ...upcoming],
     };
 
     console.log('📄 STEP 4: Return object created:', returnData);
     console.log('🚀 NEW FUNCTION - ABOUT TO RETURN:', JSON.stringify(returnData, null, 2));
-    
-    return returnData;
 
+    return returnData;
   } catch (error) {
     console.error('❌ ERROR in NEW checkUserMealPlan:', error);
-    
+
     const defaultReturn = {
       hasMealPlan: false,
       mealPlanCount: 0,
       ongoingPlans: [],
       upcomingPlans: [],
-      allPlans: []
+      allPlans: [],
     };
 
     console.log('📊 NEW FUNCTION - Returning default data due to error:', defaultReturn);
@@ -102,7 +101,7 @@ export const calculateTodayIntake = (ongoingPlans) => {
       intakePercentage: 0,
       remainingCalories: 0,
       completedMeals: 0,
-      totalMeals: 0
+      totalMeals: 0,
     };
   }
 
@@ -118,7 +117,7 @@ export const calculateTodayIntake = (ongoingPlans) => {
   for (const plan of ongoingPlans) {
     if (!plan?.todoList || !Array.isArray(plan.todoList)) continue;
 
-    const todayMeal = plan.todoList.find(day => {
+    const todayMeal = plan.todoList.find((day) => {
       if (!day?.date) return false;
       try {
         const dayDate = new Date(day.date).toISOString().split('T')[0];
@@ -132,7 +131,7 @@ export const calculateTodayIntake = (ongoingPlans) => {
       console.log('🍽️ Found today meal plan');
       targetCalories = todayMeal.dailyCalories || 0;
 
-      ['breakfast', 'lunch', 'dinner'].forEach(mealType => {
+      ['breakfast', 'lunch', 'dinner'].forEach((mealType) => {
         const meal = todayMeal[mealType];
         if (meal && typeof meal === 'object') {
           totalMeals++;
@@ -146,7 +145,8 @@ export const calculateTodayIntake = (ongoingPlans) => {
     }
   }
 
-  const intakePercentage = targetCalories > 0 ? Math.round((totalIntakeCalories / targetCalories) * 100) : 0;
+  const intakePercentage =
+    targetCalories > 0 ? Math.round((totalIntakeCalories / targetCalories) * 100) : 0;
   const remainingCalories = Math.max(0, targetCalories - totalIntakeCalories);
 
   const result = {
@@ -155,11 +155,59 @@ export const calculateTodayIntake = (ongoingPlans) => {
     intakePercentage,
     remainingCalories,
     completedMeals,
-    totalMeals
+    totalMeals,
   };
 
   console.log('📊 NEW calculateTodayIntake result:', result);
   return result;
 };
 
-// HAPUS SEMUA function lainnya yang mungkin duplicate!
+// Tambahkan function baru untuk update meal status
+export const updateMealStatus = async (
+  planId: string,
+  day: number,
+  type: 'breakfast' | 'lunch' | 'dinner',
+  isDone: boolean,
+  notes: string = ''
+) => {
+  try {
+    const token = await SecureStore.getItemAsync('access_token');
+
+    if (!token) {
+      throw new Error('No access token found');
+    }
+
+    const body = {
+      day,
+      type,
+      isDone,
+      notes,
+    };
+
+    console.log('📤 Updating meal status:', body);
+    console.log('🎯 Endpoint:', `${BASE_URL}/api/add-prepmeal/${planId}`);
+
+    const response = await fetch(`${BASE_URL}/api/add-prepmeal/${planId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ API Error:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ Meal status updated successfully:', result);
+
+    return result;
+  } catch (error) {
+    console.error('❌ Error updating meal status:', error);
+    throw error;
+  }
+};
