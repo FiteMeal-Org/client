@@ -117,7 +117,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
           [
             {
               text: 'Create Profile',
-              onPress: () => navigation.navigate('ProfilePage'),
+              onPress: () => navigation.navigate('ProfileForm'),
             },
             {
               text: 'Cancel',
@@ -163,7 +163,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
           },
           {
             text: 'Go to Profile',
-            onPress: () => navigation.navigate('ProfilePage'),
+            onPress: () => navigation.navigate('ProfileForm'),
           },
           {
             text: 'Cancel',
@@ -206,7 +206,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
         },
         {
           text: 'Go to Profile',
-          onPress: () => navigation.navigate('ProfilePage'),
+          onPress: () => navigation.navigate('ProfileForm'),
         },
       ]);
       return;
@@ -236,7 +236,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
         [
           {
             text: 'Complete Profile',
-            onPress: () => navigation.navigate('ProfilePage'),
+            onPress: () => navigation.navigate('ProfileForm'),
           },
           {
             text: 'Cancel',
@@ -315,7 +315,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
             setStartDate(new Date());
 
             // Navigate to plans
-            navigation.navigate('Plans');
+            navigation.navigate('PlansScreen');
           },
         },
       ]);
@@ -465,7 +465,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
 
                 <TouchableOpacity
                   style={styles.editProfileButton}
-                  onPress={() => navigation.navigate('ProfilePage')}>
+                  onPress={() => navigation.navigate('ProfileForm')}>
                   <Ionicons name="create-outline" size={16} color="#8B0000" />
                   <Text style={styles.editProfileText}>Update Profile</Text>
                 </TouchableOpacity>

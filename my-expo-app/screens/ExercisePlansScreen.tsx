@@ -8,66 +8,59 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
-  Dimensions,
   TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
+import { API_CONFIG } from '../config/api';
 import { useNavigation } from '@react-navigation/native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const BASE_URL = 'https://fh8mlxkf-3000.asse.devtunnels.ms';
-
-// Interface untuk meal data
-interface MealData {
-  name: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
+// Interface untuk exercise data
+interface ExerciseData {
+  day: number;
+  date: string;
+  excerciseName: string;
+  totalSession: string;
+  caloriesBurned: number;
+  sets: number;
+  reps: string;
+  targetMuscle: string;
   isDone: boolean;
   notes?: string;
 }
 
-// Interface untuk day data
-interface DayData {
-  date: string;
-  day: number;
-  dailyCalories: number;
-  breakfast: MealData;
-  lunch: MealData;
-  dinner: MealData;
-}
-
-// Interface untuk plan data
-interface PlanData {
+// Interface untuk exercise plan data
+interface ExercisePlanData {
   _id: string;
   name: string;
-  description: string;
-  duration: number;
+  userId: string;
   startDate: string;
   endDate: string;
-  todoList: DayData[];
+  todoList: ExerciseData[];
+  isDone: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export default function PlansScreen() {
+export default function ExercisePlansScreen() {
   const navigation = useNavigation();
-  const [plans, setPlans] = useState<PlanData[]>([]);
+
+  const [plans, setPlans] = useState<ExercisePlanData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<number>(1);
-  const [ongoingPlans, setOngoingPlans] = useState<PlanData[]>([]);
-  const [upcomingPlans, setUpcomingPlans] = useState<PlanData[]>([]);
+  const [ongoingPlans, setOngoingPlans] = useState<ExercisePlanData[]>([]);
+  const [upcomingPlans, setUpcomingPlans] = useState<ExercisePlanData[]>([]);
   const [activeTab, setActiveTab] = useState<'ongoing' | 'upcoming'>('ongoing');
-  const [mealNotes, setMealNotes] = useState<{ [key: string]: string }>({});
-  const [updatingMeal, setUpdatingMeal] = useState<string | null>(null);
+  const [exerciseNotes, setExerciseNotes] = useState<{ [key: string]: string }>({});
+  const [updatingExercise, setUpdatingExercise] = useState<string | null>(null);
 
-  // Update meal completion status
-  const updateMealStatus = useCallback(
-    async (planId: string, day: number, type: string, isDone: boolean, notes: string) => {
+  // Update exercise completion status
+  const updateExerciseStatus = useCallback(
+    async (planId: string, day: number, isDone: boolean, notes: string) => {
       try {
-        setUpdatingMeal(`${day}-${type}`);
+        setUpdatingExercise(`${day}`);
 
         const token = await SecureStore.getItemAsync('access_token');
         if (!token) {
@@ -77,15 +70,14 @@ export default function PlansScreen() {
 
         const body = {
           day,
-          type,
           isDone,
           notes,
         };
 
-        console.log('Sending request to:', `${BASE_URL}/api/add-prepmeal/${planId}`);
+        console.log('Sending request to:', `${API_CONFIG.BASE_URL}/api/excercise/${planId}`);
         console.log('Request body:', body);
 
-        const response = await fetch(`${BASE_URL}/api/add-prepmeal/${planId}`, {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/api/excercise/${planId}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -104,101 +96,50 @@ export default function PlansScreen() {
         console.log('✅ Update successful:', result);
 
         // Update local state
-        setPlans((prevPlans) =>
+        const updatePlans = (prevPlans: ExercisePlanData[]) =>
           prevPlans.map((plan) => {
             if (plan._id === planId) {
               return {
                 ...plan,
-                todoList: plan.todoList.map((dayData) => {
-                  if (dayData.day === day) {
+                todoList: plan.todoList.map((exercise) => {
+                  if (exercise.day === day) {
                     return {
-                      ...dayData,
-                      [type]: {
-                        ...dayData[type as keyof Omit<DayData, 'date' | 'day' | 'dailyCalories'>],
-                        isDone,
-                        notes,
-                      },
+                      ...exercise,
+                      isDone,
+                      notes,
                     };
                   }
-                  return dayData;
+                  return exercise;
                 }),
               };
             }
             return plan;
-          })
-        );
+          });
 
-        setOngoingPlans((prevPlans) =>
-          prevPlans.map((plan) => {
-            if (plan._id === planId) {
-              return {
-                ...plan,
-                todoList: plan.todoList.map((dayData) => {
-                  if (dayData.day === day) {
-                    return {
-                      ...dayData,
-                      [type]: {
-                        ...dayData[type as keyof Omit<DayData, 'date' | 'day' | 'dailyCalories'>],
-                        isDone,
-                        notes,
-                      },
-                    };
-                  }
-                  return dayData;
-                }),
-              };
-            }
-            return plan;
-          })
-        );
-
-        setUpcomingPlans((prevPlans) =>
-          prevPlans.map((plan) => {
-            if (plan._id === planId) {
-              return {
-                ...plan,
-                todoList: plan.todoList.map((dayData) => {
-                  if (dayData.day === day) {
-                    return {
-                      ...dayData,
-                      [type]: {
-                        ...dayData[type as keyof Omit<DayData, 'date' | 'day' | 'dailyCalories'>],
-                        isDone,
-                        notes,
-                      },
-                    };
-                  }
-                  return dayData;
-                }),
-              };
-            }
-            return plan;
-          })
-        );
+        setPlans(updatePlans);
+        setOngoingPlans(updatePlans);
+        setUpcomingPlans(updatePlans);
 
         // Clear notes input after successful update
-        const noteKey = `${selectedPlan}-${day}-${type}`;
-        setMealNotes((prev) => ({
+        const noteKey = `${selectedPlan}-${day}`;
+        setExerciseNotes((prev) => ({
           ...prev,
           [noteKey]: '',
         }));
 
-        Alert.alert(
-          'Success',
-          `${type.charAt(0).toUpperCase() + type.slice(1)} marked as ${isDone ? 'completed' : 'incomplete'}!`
-        );
+        Alert.alert('Success', `Exercise marked as ${isDone ? 'completed' : 'incomplete'}!`);
       } catch (error) {
-        console.error('❌ Error updating meal status:', error);
-        Alert.alert('Error', 'Failed to update meal status. Please try again.');
+        console.error('❌ Error updating exercise status:', error);
+        Alert.alert('Error', 'Failed to update exercise status. Please try again.');
       } finally {
-        setUpdatingMeal(null);
+        setUpdatingExercise(null);
       }
     },
     [selectedPlan]
   );
 
-  // Fetch meal plans
-  const fetchMealPlans = useCallback(async () => {
+  // Fetch exercise plans
+  const fetchExercisePlans = useCallback(async () => {
     try {
       const token = await SecureStore.getItemAsync('access_token');
 
@@ -207,7 +148,7 @@ export default function PlansScreen() {
         return;
       }
 
-      const response = await fetch(`${BASE_URL}/api/add-prepmeal`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/excercise`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -232,8 +173,8 @@ export default function PlansScreen() {
         setSelectedPlan(ongoing[0]._id);
       }
     } catch (error) {
-      console.error('❌ Error fetching meal plans:', error);
-      Alert.alert('Error', 'Failed to fetch meal plans');
+      console.error('❌ Error fetching exercise plans:', error);
+      Alert.alert('Error', 'Failed to fetch exercise plans');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -241,16 +182,16 @@ export default function PlansScreen() {
   }, [selectedPlan]);
 
   useEffect(() => {
-    fetchMealPlans();
-  }, [fetchMealPlans]);
+    fetchExercisePlans();
+  }, [fetchExercisePlans]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchMealPlans();
-  }, [fetchMealPlans]);
+    fetchExercisePlans();
+  }, [fetchExercisePlans]);
 
   const currentPlan = plans.find((plan) => plan._id === selectedPlan);
-  const currentDay = currentPlan?.todoList.find((day) => day.day === selectedDay);
+  const currentExercise = currentPlan?.todoList.find((exercise) => exercise.day === selectedDay);
 
   // Handle plan selection
   const handlePlanSelect = (planId: string) => {
@@ -258,93 +199,77 @@ export default function PlansScreen() {
     setSelectedDay(1);
   };
 
-  // Handle meal completion toggle
-  const handleMealToggle = async (mealType: string) => {
-    if (!selectedPlan || !currentDay) return;
+  // Handle exercise completion toggle
+  const handleExerciseToggle = async () => {
+    if (!selectedPlan || !currentExercise) return;
 
-    const meal = currentDay[
-      mealType as keyof Omit<DayData, 'date' | 'day' | 'dailyCalories'>
-    ] as MealData;
-    const noteKey = `${selectedPlan}-${selectedDay}-${mealType}`;
-    const notes = mealNotes[noteKey] || meal.notes || '';
+    const noteKey = `${selectedPlan}-${selectedDay}`;
+    const notes = exerciseNotes[noteKey] || currentExercise.notes || '';
 
-    await updateMealStatus(selectedPlan, selectedDay, mealType, !meal.isDone, notes);
+    await updateExerciseStatus(selectedPlan, selectedDay, !currentExercise.isDone, notes);
   };
 
-  // Get notes for a specific meal
-  const getMealNotes = (mealType: string) => {
-    const noteKey = `${selectedPlan}-${selectedDay}-${mealType}`;
-    return (
-      mealNotes[noteKey] ||
-      currentDay?.[mealType as keyof Omit<DayData, 'date' | 'day' | 'dailyCalories'>]?.notes ||
-      ''
-    );
+  // Get notes for a specific exercise
+  const getExerciseNotes = () => {
+    const noteKey = `${selectedPlan}-${selectedDay}`;
+    return exerciseNotes[noteKey] || currentExercise?.notes || '';
   };
 
-  // Set notes for a specific meal
-  const setMealNotesForType = (mealType: string, notes: string) => {
-    const noteKey = `${selectedPlan}-${selectedDay}-${mealType}`;
-    setMealNotes((prev) => ({
+  // Set notes for a specific exercise
+  const setExerciseNotesForDay = (notes: string) => {
+    const noteKey = `${selectedPlan}-${selectedDay}`;
+    setExerciseNotes((prev) => ({
       ...prev,
       [noteKey]: notes,
     }));
   };
 
-  // Render meal detail with ingredients and recipe
-  const renderMealDetail = (meal: MealData, mealType: string) => {
-    const isUpdating = updatingMeal === `${selectedDay}-${mealType}`;
-    const noteValue = getMealNotes(mealType);
+  // Render exercise detail
+  const renderExerciseDetail = (exercise: ExerciseData) => {
+    const isUpdating = updatingExercise === `${selectedDay}`;
+    const noteValue = getExerciseNotes();
 
     return (
-      <View style={styles.mealDetailCard}>
-        <View style={styles.mealDetailHeader}>
-          <View style={styles.mealTypeRow}>
-            <Text style={styles.mealTypeIcon}>
-              {mealType === 'breakfast' ? '☀️' : mealType === 'lunch' ? '🌞' : '🌙'}
-            </Text>
-            <Text style={styles.mealTypeText}>
-              {mealType.charAt(0).toUpperCase() + mealType.slice(1)}
-            </Text>
+      <View style={styles.exerciseDetailCard}>
+        <View style={styles.exerciseDetailHeader}>
+          <View style={styles.exerciseTypeRow}>
+            <Text style={styles.exerciseTypeIcon}>💪</Text>
+            <Text style={styles.exerciseTypeText}>Exercise</Text>
           </View>
-          <Text style={styles.caloriesText}>{meal.calories} cal</Text>
+          <Text style={styles.caloriesText}>{exercise.caloriesBurned} burn cal</Text>
         </View>
 
-        <Text style={styles.mealName}>{meal.name}</Text>
+        <Text style={styles.exerciseName}>{exercise.excerciseName}</Text>
 
-        <Text style={styles.sectionTitle}>Ingredients:</Text>
-        <View style={styles.ingredientsList}>
-          <Text style={styles.ingredientItem}>• 100g beras</Text>
-          <Text style={styles.ingredientItem}>• 1 lembar daun salam</Text>
-          <Text style={styles.ingredientItem}>• 100ml santan</Text>
-          <Text style={styles.ingredientItem}>• 1 butir telur ayam</Text>
-          <Text style={styles.ingredientItem}>• 1 sdt garam</Text>
-          <Text style={styles.ingredientItem}>• 1 sdm minyak goreng</Text>
-          <Text style={styles.ingredientItem}>• 2 iris mentimun</Text>
+        <View style={styles.exerciseInfoGrid}>
+          <View style={styles.exerciseInfoItem}>
+            <Text style={styles.exerciseInfoLabel}>Duration</Text>
+            <Text style={styles.exerciseInfoValue}>{exercise.totalSession}</Text>
+          </View>
+          <View style={styles.exerciseInfoItem}>
+            <Text style={styles.exerciseInfoLabel}>Sets</Text>
+            <Text style={styles.exerciseInfoValue}>{exercise.sets}</Text>
+          </View>
+          <View style={styles.exerciseInfoItem}>
+            <Text style={styles.exerciseInfoLabel}>Reps</Text>
+            <Text style={styles.exerciseInfoValue}>{exercise.reps}</Text>
+          </View>
+          <View style={styles.exerciseInfoItem}>
+            <Text style={styles.exerciseInfoLabel}>Burned Calories</Text>
+            <Text style={styles.exerciseInfoValue}>{exercise.caloriesBurned}</Text>
+          </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Recipe:</Text>
-        <View style={styles.recipeList}>
-          <Text style={styles.recipeStep}>
-            1. Cuci bersih beras, lalu masukkan ke dalam rice cooker.
-          </Text>
-          <Text style={styles.recipeStep}>
-            2. Tambahkan santan, daun salam, dan garam, lalu masak hingga matang.
-          </Text>
-          <Text style={styles.recipeStep}>
-            3. Kocok telur dengan sedikit garam dan goreng dalam wajan hingga matang.
-          </Text>
-          <Text style={styles.recipeStep}>
-            4. Sajikan nasi uduk dengan telur dadar dan irisan mentimun.
-          </Text>
-        </View>
+        <Text style={styles.sectionTitle}>Target Muscles:</Text>
+        <Text style={styles.targetMuscles}>{exercise.targetMuscle}</Text>
 
         {/* Notes Input */}
         <Text style={styles.sectionTitle}>Notes:</Text>
         <TextInput
           style={styles.notesInput}
-          placeholder="Add your notes here..."
+          placeholder="Add your workout notes here..."
           value={noteValue}
-          onChangeText={(text) => setMealNotesForType(mealType, text)}
+          onChangeText={setExerciseNotesForDay}
           multiline
           numberOfLines={3}
           textAlignVertical="top"
@@ -354,26 +279,29 @@ export default function PlansScreen() {
           <TouchableOpacity
             style={[
               styles.statusButton,
-              meal.isDone && styles.statusButtonCompleted,
+              exercise.isDone && styles.statusButtonCompleted,
               isUpdating && styles.statusButtonDisabled,
             ]}
-            onPress={() => handleMealToggle(mealType)}
+            onPress={handleExerciseToggle}
             disabled={isUpdating}>
             {isUpdating ? (
               <View style={styles.loadingRow}>
-                <ActivityIndicator size="small" color={meal.isDone ? '#FFFFFF' : '#666666'} />
+                <ActivityIndicator size="small" color={exercise.isDone ? '#FFFFFF' : '#666666'} />
                 <Text
                   style={[
                     styles.statusButtonText,
-                    meal.isDone && styles.statusButtonTextCompleted,
+                    exercise.isDone && styles.statusButtonTextCompleted,
                   ]}>
                   Updating...
                 </Text>
               </View>
             ) : (
               <Text
-                style={[styles.statusButtonText, meal.isDone && styles.statusButtonTextCompleted]}>
-                {meal.isDone ? 'Completed' : 'Mark as Complete'}
+                style={[
+                  styles.statusButtonText,
+                  exercise.isDone && styles.statusButtonTextCompleted,
+                ]}>
+                {exercise.isDone ? 'Completed' : 'Mark as Complete'}
               </Text>
             )}
           </TouchableOpacity>
@@ -385,8 +313,8 @@ export default function PlansScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#8B5A8C" />
-        <Text style={styles.loadingText}>Loading your meal plans...</Text>
+        <ActivityIndicator size="large" color="#FF9800" />
+        <Text style={styles.loadingText}>Loading your exercise plans...</Text>
       </View>
     );
   }
@@ -401,11 +329,11 @@ export default function PlansScreen() {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Meal Plans</Text>
+        <Text style={styles.headerTitle}>Exercise Plans</Text>
 
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('AddCompletePlan' as never)}>
+          onPress={() => navigation.navigate('AddExercise')}>
           <Text style={styles.addIcon}>+</Text>
         </TouchableOpacity>
       </View>
@@ -417,8 +345,8 @@ export default function PlansScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#8B5A8C']}
-            tintColor="#8B5A8C"
+            colors={['#FF9800']}
+            tintColor="#FF9800"
           />
         }>
         {/* Tab Selector */}
@@ -439,8 +367,8 @@ export default function PlansScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Select Meal Plan Section */}
-        <Text style={styles.sectionHeader}>Select Meal Plan</Text>
+        {/* Select Exercise Plan Section */}
+        <Text style={styles.sectionHeader}>Select Exercise Plan</Text>
 
         {(activeTab === 'ongoing' ? ongoingPlans : upcomingPlans).map((plan) => {
           const isSelected = selectedPlan === plan._id;
@@ -472,13 +400,13 @@ export default function PlansScreen() {
                   })}
                 </Text>
                 <Text style={[styles.planDuration, isSelected && styles.selectedPlanDuration]}>
-                  {plan.duration} days
+                  {plan.todoList.length} days program
                 </Text>
 
                 {isSelected && (
                   <TouchableOpacity
                     style={styles.uploadPhotoButton}
-                    onPress={() => navigation.navigate('UploadImageScreen' as never)}>
+                    onPress={() => navigation.navigate('UploadImageScreen')}>
                     <Text style={styles.uploadPhotoIcon}>📷</Text>
                     <Text style={styles.uploadPhotoText}>Upload Photo</Text>
                   </TouchableOpacity>
@@ -502,17 +430,17 @@ export default function PlansScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.dayScrollContent}>
-              {currentPlan?.todoList.map((day) => {
-                const dayDate = new Date(day.date);
-                const isSelected = selectedDay === day.day;
+              {currentPlan?.todoList.map((exercise) => {
+                const dayDate = new Date(exercise.date);
+                const isSelected = selectedDay === exercise.day;
 
                 return (
                   <TouchableOpacity
-                    key={day.day}
+                    key={exercise.day}
                     style={[styles.dayCard, isSelected && styles.selectedDayCard]}
-                    onPress={() => setSelectedDay(day.day)}>
+                    onPress={() => setSelectedDay(exercise.day)}>
                     <Text style={[styles.dayTitle, isSelected && styles.selectedDayTitle]}>
-                      Day {day.day}
+                      Day {exercise.day}
                     </Text>
                     <Text style={[styles.dayDate, isSelected && styles.selectedDayDate]}>
                       {dayDate.toLocaleDateString('id-ID', {
@@ -523,28 +451,21 @@ export default function PlansScreen() {
                       })}
                     </Text>
                     <Text style={[styles.dayCalories, isSelected && styles.selectedDayCalories]}>
-                      {day.dailyCalories} cal
+                      {exercise.caloriesBurned} burn cal
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
 
-            {/* Day Meals Section */}
-            {currentDay && (
+            {/* Day Exercise Section */}
+            {currentExercise && (
               <>
                 <Text style={styles.sectionHeader}>
-                  Day {selectedDay} Meals ({currentDay.dailyCalories} calories)
+                  Day {selectedDay} Exercise ({currentExercise.caloriesBurned} calories)
                 </Text>
 
-                {/* Breakfast */}
-                {currentDay.breakfast && renderMealDetail(currentDay.breakfast, 'breakfast')}
-
-                {/* Lunch */}
-                {currentDay.lunch && renderMealDetail(currentDay.lunch, 'lunch')}
-
-                {/* Dinner */}
-                {currentDay.dinner && renderMealDetail(currentDay.dinner, 'dinner')}
+                {renderExerciseDetail(currentExercise)}
               </>
             )}
           </>
@@ -604,7 +525,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#8B5A8C',
+    backgroundColor: '#FF9800',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -652,7 +573,7 @@ const styles = StyleSheet.create({
     color: '#666666',
   },
   activeTabText: {
-    color: '#8B5A8C',
+    color: '#FF9800',
     fontWeight: '600',
   },
 
@@ -675,7 +596,7 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
   },
   selectedPlanCard: {
-    borderColor: '#8B5A8C',
+    borderColor: '#FF9800',
     position: 'relative',
   },
   planCardContent: {
@@ -688,7 +609,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   selectedPlanTitle: {
-    color: '#8B5A8C',
+    color: '#FF9800',
   },
   planDate: {
     fontSize: 14,
@@ -729,7 +650,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     right: 20,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FF9800',
     borderRadius: 12,
     paddingVertical: 4,
     paddingHorizontal: 12,
@@ -755,8 +676,8 @@ const styles = StyleSheet.create({
     minWidth: 140,
   },
   selectedDayCard: {
-    borderColor: '#8B5A8C',
-    backgroundColor: '#F8F6F8',
+    borderColor: '#FF9800',
+    backgroundColor: '#FFF8F0',
   },
   dayTitle: {
     fontSize: 16,
@@ -765,7 +686,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   selectedDayTitle: {
-    color: '#8B5A8C',
+    color: '#FF9800',
   },
   dayDate: {
     fontSize: 12,
@@ -777,15 +698,15 @@ const styles = StyleSheet.create({
   },
   dayCalories: {
     fontSize: 14,
-    color: '#8B5A8C',
+    color: '#FF9800',
     fontWeight: '600',
   },
   selectedDayCalories: {
-    color: '#8B5A8C',
+    color: '#FF9800',
   },
 
-  // Meal Detail Cards
-  mealDetailCard: {
+  // Exercise Detail Cards
+  exerciseDetailCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
@@ -793,36 +714,64 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  mealDetailHeader: {
+  exerciseDetailHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  mealTypeRow: {
+  exerciseTypeRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  mealTypeIcon: {
+  exerciseTypeIcon: {
     fontSize: 20,
     marginRight: 8,
   },
-  mealTypeText: {
+  exerciseTypeText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#8B5A8C',
+    color: '#FF9800',
   },
   caloriesText: {
     fontSize: 14,
     color: '#666666',
     fontWeight: '500',
   },
-  mealName: {
+  exerciseName: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333333',
     marginBottom: 16,
   },
+
+  // Exercise Info Grid
+  exerciseInfoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+    gap: 12,
+  },
+  exerciseInfoItem: {
+    backgroundColor: '#F8F8F8',
+    borderRadius: 8,
+    padding: 12,
+    flex: 1,
+    minWidth: '47%',
+    alignItems: 'center',
+  },
+  exerciseInfoLabel: {
+    fontSize: 12,
+    color: '#666666',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  exerciseInfoValue: {
+    fontSize: 16,
+    color: '#333333',
+    fontWeight: '600',
+  },
+
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
@@ -830,23 +779,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 8,
   },
-  ingredientsList: {
+  targetMuscles: {
+    fontSize: 14,
+    color: '#666666',
     marginBottom: 16,
-  },
-  ingredientItem: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 4,
     lineHeight: 20,
-  },
-  recipeList: {
-    marginBottom: 20,
-  },
-  recipeStep: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 8,
-    lineHeight: 20,
+    fontStyle: 'italic',
   },
 
   // Notes Input

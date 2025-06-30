@@ -13,15 +13,13 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { checkUserMealPlan, calculateTodayIntake } from '../services/mealPlanService';
-import { useFocusEffect } from '@react-navigation/native';
-
-type HomeScreenProps = {
-  onNavigate: (screen: string) => void;
-};
+import { getProfile } from '../services/profileService'; // Import profile service
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-export default function HomeScreen({ onNavigate }: HomeScreenProps) {
+export default function HomeScreen() {
+  const navigation = useNavigation();
   // State untuk meal plan dan calories
   const [hasMealPlan, setHasMealPlan] = useState(false);
   const [mealPlanCount, setMealPlanCount] = useState(0);
@@ -35,11 +33,33 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [completedMeals, setCompletedMeals] = useState(0);
   const [totalMeals, setTotalMeals] = useState(0);
 
+  // Profile states
+  const [profile, setProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+
   // Existing state variables
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load profile data
+  const loadProfileData = async () => {
+    try {
+      setProfileLoading(true);
+      console.log('📱 HomeScreen: Loading profile data...');
+
+      const profileData = await getProfile();
+      console.log('📱 HomeScreen: Profile data received:', profileData);
+
+      setProfile(profileData);
+    } catch (error) {
+      // console.error('❌ HomeScreen: Error loading profile:', error);
+      setProfile(null);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   // PENTING: Helper function untuk reset calorie data - HARUS DIATAS checkMealPlanStatus
   const resetCalorieData = () => {
@@ -91,7 +111,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         upcomingPlansIsArray: Array.isArray(result.upcomingPlans),
         upcomingPlansLength: result.upcomingPlans?.length,
         allPlans: result.allPlans,
-        allPlansLength: result.allPlans?.length
+        allPlansLength: result.allPlans?.length,
       });
 
       // Safely set state dengan fallback values
@@ -112,7 +132,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             id: plan?._id,
             name: plan?.name,
             hasToDoList: !!plan?.todoList,
-            todoListLength: plan?.todoList?.length
+            todoListLength: plan?.todoList?.length,
           });
         });
       }
@@ -144,7 +164,9 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
           resetCalorieData();
         }
       } else {
-        console.log('📊 HomeScreen: No ongoing plans found or invalid array, resetting calorie data');
+        console.log(
+          '📊 HomeScreen: No ongoing plans found or invalid array, resetting calorie data'
+        );
         console.log('📊 HomeScreen: ongoingPlans value:', ongoingPlans);
         console.log('📊 HomeScreen: Array.isArray check:', Array.isArray(ongoingPlans));
         console.log('📊 HomeScreen: Length check:', ongoingPlans?.length);
@@ -152,7 +174,9 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       }
     } catch (error) {
       console.error('❌ HomeScreen: Error checking meal plan status:', error);
-      console.error('❌ HomeScreen: Error stack:', error.stack);
+      if (error instanceof Error) {
+        console.error('❌ HomeScreen: Error stack:', error.stack);
+      }
 
       // Reset all states to safe defaults pada error
       setHasMealPlan(false);
@@ -166,15 +190,16 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   // Handle banner press
   const handleMealPlanBannerPress = () => {
     if (hasMealPlan) {
-      onNavigate('Plans');
+      navigation.navigate('PlansScreen' as never);
     } else {
-      onNavigate('PlanSelection');
+      navigation.navigate('PlanSelection' as never);
     }
   };
 
-  // Check meal plan status on mount
+  // Load initial data on mount
   useEffect(() => {
     checkMealPlanStatus();
+    loadProfileData();
   }, []);
 
   // Refresh when screen is focused
@@ -186,6 +211,9 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       const timeoutId = setTimeout(() => {
         checkMealPlanStatus().catch((error) => {
           console.error('❌ Error in useFocusEffect:', error);
+        });
+        loadProfileData().catch((error) => {
+          console.error('❌ Error loading profile in useFocusEffect:', error);
         });
       }, 100);
 
@@ -404,6 +432,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     console.log('- mealPlanLoading:', mealPlanLoading);
     console.log('- hasMealPlan:', hasMealPlan);
     console.log('- mealPlanCount:', mealPlanCount);
+    console.log('- profileLoading:', profileLoading);
   }, []);
 
   const bannerImages = [
@@ -435,11 +464,15 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             <Text style={styles.appTitleShadow}>FITEMEAL</Text>
             <Text style={styles.appTitle}>FITEMEAL</Text>
           </View>
-          <TouchableOpacity onPress={() => onNavigate('Profile')} style={styles.profileButton}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ProfileForm' as never)}
+            style={styles.profileButton}>
             <Image
-              source={{
-                uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
-              }}
+              source={
+                profile?.profilePicture
+                  ? { uri: profile.profilePicture }
+                  : require('../assets/istockphoto-1130884625-612x612.jpg') // Default image
+              }
               style={styles.profileImage}
             />
             <View style={styles.onlineIndicator} />
@@ -586,7 +619,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               style={styles.actionCard}
               onPress={() => {
                 console.log('🏃‍♂️ GET MEAL & EXERCISE PLAN button pressed!');
-                onNavigate('MealExercisePlan');
+                navigation.navigate('MealExercisePlan' as never);
               }}
               activeOpacity={0.8}>
               <Image
