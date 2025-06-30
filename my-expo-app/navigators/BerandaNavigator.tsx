@@ -78,7 +78,16 @@ export default function BerandaNavigator() {
               tabBarLabel: 'Plans',
             }}>
             {(props) => (
-              <PlansScreen {...props} onNavigate={(screen) => props.navigation.navigate(screen)} />
+              <PlansScreen 
+                {...props} 
+                onNavigate={(screen, params) => {
+                  if (params) {
+                    props.navigation.navigate(screen, params);
+                  } else {
+                    props.navigation.navigate(screen);
+                  }
+                }} 
+              />
             )}
           </Tab.Screen>
           <Tab.Screen
@@ -117,10 +126,11 @@ export default function BerandaNavigator() {
           />
 
           <Tab.Screen
-            name="Upload"
+            name="UploadImageScreen"
             component={UploadImageScreen}
             options={{
-              tabBarLabel: 'Upload',
+              tabBarButton: () => null, // Hide from tab bar
+              headerShown: false,
             }}
           />
 

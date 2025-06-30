@@ -52,10 +52,11 @@ interface PlansData {
 }
 
 type PlansScreenProps = {
-  onNavigate: (screen: string, params?: any) => void;
+  onNavigate?: (screen: string, params?: any) => void;
+  navigation?: any; // Tambahkan navigation prop
 };
 
-export default function PlansScreen({ onNavigate }: PlansScreenProps) {
+export default function PlansScreen({ onNavigate, navigation }: PlansScreenProps) {
   const [loading, setLoading] = useState(true);
   const [plansData, setPlansData] = useState<PlansData>({ ongoing: [], upcoming: [] });
   const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null);
@@ -95,19 +96,19 @@ export default function PlansScreen({ onNavigate }: PlansScreenProps) {
       }
 
       console.log('🔍 Loading meal plans...');
-    //   console.log(token, "<<<<<<<<<<<<<<");
-      
+      //   console.log(token, "<<<<<<<<<<<<<<");
+
       const response = await fetch(`${API_CONFIG.BASE_URL}/${API_CONFIG.ENDPOINTS.PREP_MEAL}`, {
         method: 'GET',
         headers: {
-          "Content-Type": 'application/json',
-          "Authorization": `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
       });
-    //   console.log(response, "<<<<<<<<<<<<<<");
-      
-    //   console.log(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PREP_MEAL}`, "<<<<<<<<<<<<<<");
-      
+      //   console.log(response, "<<<<<<<<<<<<<<");
+
+      //   console.log(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.PREP_MEAL}`, "<<<<<<<<<<<<<<");
+
       if (!response.ok) {
         if (response.status === 401) {
           Alert.alert(
@@ -136,7 +137,6 @@ export default function PlansScreen({ onNavigate }: PlansScreenProps) {
         ongoing: result.data?.ongoing || [],
         upcoming: result.data?.upcoming || [],
       };
-      
 
       setPlansData(newPlansData);
 
@@ -193,14 +193,24 @@ export default function PlansScreen({ onNavigate }: PlansScreenProps) {
     return status === 'ongoing' ? 'Sedang Berjalan' : 'Akan Datang';
   };
 
-  const handleAlternateNavigation = () => {
-    if (!selectedPlan) {
-      Alert.alert('Error', 'Please select a meal plan first');
-      return;
+  const handleUploadPhoto = (plan: MealPlan) => {
+    console.log('🚀 Navigating to upload with plan:', plan);
+    console.log('📋 Plan _id:', plan._id);
+    console.log('📝 Plan Name:', plan.name);
+    
+    const params = {
+      plansId: plan._id,
+      planName: plan.name || 'Meal Plan'
+    };
+    
+    // Coba navigation prop dulu, fallback ke onNavigate
+    if (navigation) {
+      navigation.navigate('UploadImageScreen', params);
+    } else if (onNavigate) {
+      onNavigate('UploadImageScreen', params);
+    } else {
+      console.error('❌ No navigation method available');
     }
-
-    console.log('🚀 Navigating to Upload with planId:', selectedPlan._id);
-    onNavigate('Upload', { planId: selectedPlan._id, planName: selectedPlan.name });
   };
 
   const renderTabSelector = () => (
@@ -273,11 +283,13 @@ export default function PlansScreen({ onNavigate }: PlansScreenProps) {
             </Text>
             <Text style={styles.planDays}>{plan.todoList.length} days</Text>
 
-            {/* Alternate Button - hanya tampil jika plan ini yang selected */}
+            {/* Upload Photo Button - hanya tampil jika plan ini yang selected */}
             {selectedPlan?._id === plan._id && (
-              <TouchableOpacity style={styles.alternateButton} onPress={handleAlternateNavigation}>
-                <Ionicons name="camera" size={18} color="#8B4A6B" />
-                <Text style={styles.alternateButtonText}>Alternate</Text>
+              <TouchableOpacity
+                style={styles.uploadPhotoButton}
+                onPress={() => handleUploadPhoto(plan)}>
+                <Ionicons name="camera" size={16} color="#8B4A6B" />
+                <Text style={styles.uploadPhotoText}>Upload Photo</Text>
               </TouchableOpacity>
             )}
           </TouchableOpacity>
@@ -531,29 +543,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
   },
-  alternateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#8B4A6B',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 12,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  alternateButtonText: {
-    color: '#8B4A6B',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
   emptyState: {
     alignItems: 'center',
     paddingVertical: 40,
@@ -675,5 +664,28 @@ const styles = StyleSheet.create({
   mealStatusContainer: {
     alignItems: 'flex-end',
     marginTop: 8,
+  },
+  uploadPhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#8B4A6B',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  uploadPhotoText: {
+    color: '#8B4A6B',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
 });
