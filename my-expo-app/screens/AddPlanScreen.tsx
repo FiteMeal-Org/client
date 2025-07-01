@@ -36,6 +36,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [preferences, setPreferences] = useState('');
   const [duration, setDuration] = useState('');
+  const [goals, setGoals] = useState('');
 
   // Loading dan profile state
   const [loading, setLoading] = useState(false);
@@ -73,7 +74,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
       console.log('🔍 Fetching profile for user:', userId);
 
       // Debug URL
-      const profileUrl = `https://fh8mlxkf-3000.asse.devtunnels.ms/api/profiles/${userId}`;
+      const profileUrl = `https://api-fitemeal.vercel.app/api/profiles/${userId}`;
       console.log('🌐 Profile URL:', profileUrl);
 
       const response = await fetch(profileUrl, {
@@ -150,8 +151,10 @@ export default function AddScreen({ navigation }: { navigation: any }) {
       }
     } catch (error) {
       console.error('❌ Error fetching user profile:', error);
-      console.error('❌ Error message:', error.message);
-      console.error('❌ Error stack:', error.stack);
+      if (error instanceof Error) {
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error stack:', error.stack);
+      }
 
       Alert.alert(
         'Profile Error',
@@ -260,12 +263,12 @@ export default function AddScreen({ navigation }: { navigation: any }) {
       const requestBody = {
         name: name.trim(),
         startDate: startDate.toISOString().split('T')[0],
-        age: userProfile.age.toString(),
+        age: (userProfile.age || 0).toString(),
         weight: userProfile.weight,
         height: userProfile.height,
         gender: userProfile.gender,
         activity_level: userProfile.activity_level,
-        goals: userProfile.goals || 'General health', // Default jika tidak ada goals
+        goals: goals || 'General health', // Default jika tidak ada goals
         preferences: preferences.trim(),
         duration: parseInt(duration),
       };
@@ -273,7 +276,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
       console.log('🚀 Creating meal plan with body:', requestBody);
 
       // PERBAIKAN: URL endpoint yang benar
-      const prepMealUrl = 'https://fh8mlxkf-3000.asse.devtunnels.ms/api/add-prepmeal';
+      const prepMealUrl = 'https://api-fitemeal.vercel.app/api/add-prepmeal';
       console.log('🌐 Prep meal URL:', prepMealUrl);
 
       const response = await fetch(prepMealUrl, {
@@ -321,7 +324,9 @@ export default function AddScreen({ navigation }: { navigation: any }) {
       ]);
     } catch (error) {
       console.error('❌ Error creating meal plan:', error);
-      Alert.alert('Error', error.message || 'Failed to create meal plan. Please try again.', [
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to create meal plan. Please try again.';
+      Alert.alert('Error', errorMessage, [
         {
           text: 'Retry',
           onPress: () => handleCreatePlan(),
@@ -366,231 +371,180 @@ export default function AddScreen({ navigation }: { navigation: any }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={{ flex: 1 }}>
-        {/* Hero Image dengan Header */}
-        <View style={styles.imageHeaderContainer}>
-          <ImageBackground
-            source={{
-              uri: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=800&h=600&fit=crop',
-            }}
-            style={styles.imageHeader}>
-            <LinearGradient
-              colors={[
-                'rgba(255,255,255,0)',
-                'rgba(255,255,255,0)',
-                'rgba(255,255,255,0.3)',
-                'rgba(255,255,255,0.6)',
-                'rgba(255,255,255,0.85)',
-                'rgba(248,249,250,1)',
-              ]}
-              locations={[0, 0.4, 0.6, 0.75, 0.9, 1]}
-              style={styles.imageGradient}
-            />
+      {/* Header dengan tombol back */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#8B0000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Create Meal Plan</Text>
+        <View style={styles.headerRight} />
+      </View>
 
-            {/* Header Navigation */}
-            <View style={styles.headerOverlay}>
-              <Text style={styles.headerTitle}>Create Meal Plan</Text>
-              <View style={styles.headerActions}>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('Login')}
-                  style={styles.headerButton}>
-                  <Text style={styles.headerButtonText}>Login</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('Register')}
-                  style={[styles.headerButton, styles.headerButtonSecondary]}>
-                  <Text style={styles.headerButtonTextSecondary}>Register</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('PlansScreen')}
-                  style={styles.profileButton}>
-                  <Ionicons name="person-circle-outline" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Hero Content */}
-            <View style={styles.headerContent}>
-              <Text style={styles.title}>Plan Your Perfect Meals</Text>
-              <Text style={styles.subtitle}>
-                Using your profile data to create personalized nutrition
-              </Text>
-            </View>
-          </ImageBackground>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <Text style={styles.title}>Plan Your Perfect Meals</Text>
+          <Text style={styles.subtitle}>
+            Using your profile data to create personalized nutrition
+          </Text>
         </View>
 
-        {/* Form Section */}
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.form}>
-            {/* Profile Info Display */}
-            {userProfile && (
-              <View style={styles.profileInfoContainer}>
-                <Text style={styles.profileInfoTitle}>Your Profile Data</Text>
-                <View style={styles.profileInfoGrid}>
-                  <View style={styles.profileInfoItem}>
-                    <Text style={styles.profileInfoLabel}>Age</Text>
-                    <Text style={styles.profileInfoValue}>{userProfile.age || 'Not set'}</Text>
-                  </View>
-                  <View style={styles.profileInfoItem}>
-                    <Text style={styles.profileInfoLabel}>Weight</Text>
-                    <Text style={styles.profileInfoValue}>
-                      {userProfile.weight || 'Not set'} kg
-                    </Text>
-                  </View>
-                  <View style={styles.profileInfoItem}>
-                    <Text style={styles.profileInfoLabel}>Height</Text>
-                    <Text style={styles.profileInfoValue}>
-                      {userProfile.height || 'Not set'} cm
-                    </Text>
-                  </View>
-                  <View style={styles.profileInfoItem}>
-                    <Text style={styles.profileInfoLabel}>Gender</Text>
-                    <Text style={styles.profileInfoValue}>{userProfile.gender || 'Not set'}</Text>
-                  </View>
+        {/* Form Content */}
+        <View style={styles.form}>
+          {/* Profile Info Display */}
+          {userProfile && (
+            <View style={styles.profileInfoContainer}>
+              <Text style={styles.profileInfoTitle}>Your Profile Data</Text>
+              <View style={styles.profileInfoGrid}>
+                <View style={styles.profileInfoItem}>
+                  <Text style={styles.profileInfoLabel}>Age</Text>
+                  <Text style={styles.profileInfoValue}>{userProfile.age || 'Not set'}</Text>
                 </View>
-                <View style={styles.profileInfoRow}>
-                  <Text style={styles.profileInfoLabel}>Goals: </Text>
-                  <Text style={styles.profileInfoValue}>
-                    {userProfile.goals || 'General health'}
-                  </Text>
+                <View style={styles.profileInfoItem}>
+                  <Text style={styles.profileInfoLabel}>Weight</Text>
+                  <Text style={styles.profileInfoValue}>{userProfile.weight || 'Not set'} kg</Text>
                 </View>
-                <View style={styles.profileInfoRow}>
-                  <Text style={styles.profileInfoLabel}>Activity: </Text>
-                  <Text style={styles.profileInfoValue}>
-                    {userProfile.activity_level || 'Not set'}
-                  </Text>
+                <View style={styles.profileInfoItem}>
+                  <Text style={styles.profileInfoLabel}>Height</Text>
+                  <Text style={styles.profileInfoValue}>{userProfile.height || 'Not set'} cm</Text>
                 </View>
-
-                <TouchableOpacity
-                  style={styles.editProfileButton}
-                  onPress={() => navigation.navigate('ProfileForm')}>
-                  <Ionicons name="create-outline" size={16} color="#8B0000" />
-                  <Text style={styles.editProfileText}>Update Profile</Text>
-                </TouchableOpacity>
+                <View style={styles.profileInfoItem}>
+                  <Text style={styles.profileInfoLabel}>Gender</Text>
+                  <Text style={styles.profileInfoValue}>{userProfile.gender || 'Not set'}</Text>
+                </View>
               </View>
-            )}
+              <View style={styles.profileInfoRow}>
+                <Text style={styles.profileInfoLabel}>Goals: </Text>
+                <Text style={styles.profileInfoValue}>{userProfile.goals || 'General health'}</Text>
+              </View>
+              <View style={styles.profileInfoRow}>
+                <Text style={styles.profileInfoLabel}>Activity: </Text>
+                <Text style={styles.profileInfoValue}>
+                  {userProfile.activity_level || 'Not set'}
+                </Text>
+              </View>
 
-            {/* Plan Name */}
-            <Text style={styles.inputLabel}>Plan Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., My Summer Transformation"
-              placeholderTextColor="#999"
-              value={name}
-              onChangeText={setName}
+              <TouchableOpacity
+                style={styles.editProfileButton}
+                onPress={() => navigation.navigate('ProfileForm')}>
+                <Ionicons name="create-outline" size={16} color="#8B0000" />
+                <Text style={styles.editProfileText}>Update Profile</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Plan Name */}
+          <Text style={styles.inputLabel}>Plan Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g., My Summer Transformation"
+            placeholderTextColor="#999"
+            value={name}
+            onChangeText={setName}
+          />
+
+          {/* Start Date */}
+          <Text style={styles.inputLabel}>Start Date</Text>
+          <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
+            <Text style={styles.dateText}>{formatDate(startDate)}</Text>
+            <Ionicons name="chevron-down" size={20} color="#999" />
+          </TouchableOpacity>
+
+          {showDatePicker && (
+            <DateTimePicker
+              value={startDate}
+              mode="date"
+              display="default"
+              onChange={onDateChange}
+              minimumDate={new Date()}
             />
+          )}
 
-            {/* Start Date */}
-            <Text style={styles.inputLabel}>Start Date</Text>
-            <TouchableOpacity
-              style={styles.datePickerButton}
-              onPress={() => setShowDatePicker(true)}>
-              <Text style={styles.dateText}>{formatDate(startDate)}</Text>
-              <Ionicons name="chevron-down" size={20} color="#999" />
-            </TouchableOpacity>
+          {/* Preferences */}
+          <Text style={styles.inputLabel}>Dietary Preferences</Text>
+          <TextInput
+            style={styles.textArea}
+            placeholder="e.g., vegetarian, no dairy, gluten-free, no rice, allergies..."
+            placeholderTextColor="#999"
+            value={preferences}
+            onChangeText={setPreferences}
+            multiline={true}
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
 
-            {showDatePicker && (
-              <DateTimePicker
-                value={startDate}
-                mode="date"
-                display="default"
-                onChange={onDateChange}
-                minimumDate={new Date()}
-              />
-            )}
-
-            {/* Preferences */}
-            <Text style={styles.inputLabel}>Dietary Preferences</Text>
-            <TextInput
-              style={styles.textArea}
-              placeholder="e.g., vegetarian, no dairy, gluten-free, no rice, allergies..."
-              placeholderTextColor="#999"
-              value={preferences}
-              onChangeText={setPreferences}
-              multiline={true}
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-
-            {/* Duration */}
-            <Text style={styles.inputLabel}>Plan Duration</Text>
-            <View style={styles.durationContainer}>
-              {['3', '7'].map((days) => (
-                <TouchableOpacity
-                  key={days}
-                  style={[
-                    styles.durationOption,
-                    duration === days && styles.durationOptionSelected,
-                  ]}
-                  onPress={() => setDuration(days)}>
-                  <Text
-                    style={[
-                      styles.durationOptionText,
-                      duration === days && styles.durationOptionTextSelected,
-                    ]}>
-                    {days} Days
-                  </Text>
-                  <Text
-                    style={[
-                      styles.durationSubtext,
-                      duration === days && styles.durationSubtextSelected,
-                    ]}>
-                    {days === '3' ? 'Quick Start' : 'Complete Plan'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Create Button */}
-            <TouchableOpacity onPress={handleCreatePlan} activeOpacity={0.8} disabled={loading}>
-              <LinearGradient
-                colors={loading ? ['#9CA3AF', '#9CA3AF'] : ['#8B0000', '#DC143C', '#FF6B6B']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.createButton, loading && styles.createButtonDisabled]}>
-                {loading ? (
-                  <View style={styles.loadingButtonContainer}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                    <Text style={styles.createButtonText}>Creating Plan...</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.createButtonText}>Create My Meal Plan</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {/* Bottom Navigation - tetap sama */}
-            <View style={styles.bottomRegisterContainer}>
-              <Text style={styles.bottomRegisterText}>Already have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <Text style={styles.bottomRegisterLink}>Login</Text>
+          {/* Goals */}
+          <Text style={styles.inputLabel}>Goals</Text>
+          <View style={styles.goalsContainer}>
+            {['Bulking', 'Maintenance', 'Diet'].map((goal) => (
+              <TouchableOpacity
+                key={goal}
+                style={[styles.goalOption, goals === goal && styles.goalOptionSelected]}
+                onPress={() => setGoals(goal)}>
+                <Text
+                  style={[styles.goalOptionText, goals === goal && styles.goalOptionTextSelected]}>
+                  {goal}
+                </Text>
+                <Text style={[styles.goalSubtext, goals === goal && styles.goalSubtextSelected]}>
+                  {goal === 'Bulking'
+                    ? 'Build muscle mass'
+                    : goal === 'Maintenance'
+                      ? 'Maintain current weight'
+                      : 'Lose body fat'}
+                </Text>
               </TouchableOpacity>
-            </View>
-            <View style={styles.bottomRegisterContainer}>
-              <Text style={styles.bottomRegisterText}>Need to create an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                <Text style={styles.bottomRegisterLink}>Register</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Add Exercise Link */}
-            <View style={styles.bottomRegisterContainer}>
-              <TouchableOpacity onPress={() => navigation.navigate('AddExerciseScreen')}>
-                <Text style={styles.addExerciseLink}>Add Exercise</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Complete Plan Link */}
-            <View style={styles.bottomRegisterContainer}>
-              <TouchableOpacity onPress={() => navigation.navigate('AddCompletePlan')}>
-                <Text style={styles.completePlanLink}>Meal Plan & Exercise Plan</Text>
-              </TouchableOpacity>
-            </View>
+            ))}
           </View>
-        </ScrollView>
-      </View>
+
+          {/* Duration */}
+          <Text style={styles.inputLabel}>Plan Duration</Text>
+          <View style={styles.durationContainer}>
+            {['3', '7'].map((days) => (
+              <TouchableOpacity
+                key={days}
+                style={[styles.durationOption, duration === days && styles.durationOptionSelected]}
+                onPress={() => setDuration(days)}>
+                <Text
+                  style={[
+                    styles.durationOptionText,
+                    duration === days && styles.durationOptionTextSelected,
+                  ]}>
+                  {days} Days
+                </Text>
+                <Text
+                  style={[
+                    styles.durationSubtext,
+                    duration === days && styles.durationSubtextSelected,
+                  ]}>
+                  {days === '3' ? 'Quick Start' : 'Complete Plan'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Create Button */}
+          <TouchableOpacity onPress={handleCreatePlan} activeOpacity={0.8} disabled={loading}>
+            <LinearGradient
+              colors={loading ? ['#9CA3AF', '#9CA3AF'] : ['#8B0000', '#DC143C', '#FF6B6B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.createButton, loading && styles.createButtonDisabled]}>
+              {loading ? (
+                <View style={styles.loadingButtonContainer}>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <Text style={styles.createButtonText}>Creating Plan...</Text>
+                </View>
+              ) : (
+                <Text style={styles.createButtonText}>Create My Meal Plan</Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -598,6 +552,70 @@ export default function AddScreen({ navigation }: { navigation: any }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B0000',
+  },
+  headerRight: {
+    width: 40,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 30,
+  },
+  heroSection: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#8B0000',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  form: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
     backgroundColor: '#F8F9FA',
   },
   loadingContainer: {
@@ -635,11 +653,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
   headerActions: {
     flexDirection: 'row',
     gap: 10,
@@ -676,35 +689,6 @@ const styles = StyleSheet.create({
     left: 24,
     bottom: 60,
     right: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#8B0000',
-    marginBottom: 8,
-    textShadowColor: 'rgba(255, 255, 255, 0.9)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#2C3E50',
-    lineHeight: 20,
-    opacity: 0.9,
-    textShadowColor: 'rgba(255, 255, 255, 0.9)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  form: {
-    paddingHorizontal: 24,
-    paddingTop: 0,
-    paddingBottom: 40,
-    backgroundColor: '#F8F9FA',
-    marginTop: -20,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 30,
   },
 
   // Profile Info Styles - NEW
@@ -883,6 +867,45 @@ const styles = StyleSheet.create({
     color: '#6C757D',
   },
   durationSubtextSelected: {
+    color: '#FFFFFF',
+    opacity: 0.8,
+  },
+  goalsContainer: {
+    flexDirection: 'column',
+    gap: 12,
+    marginBottom: 24,
+  },
+  goalOption: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  goalOptionSelected: {
+    backgroundColor: '#8B0000',
+    borderColor: '#8B0000',
+  },
+  goalOptionText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+    marginBottom: 4,
+  },
+  goalOptionTextSelected: {
+    color: '#FFFFFF',
+  },
+  goalSubtext: {
+    fontSize: 12,
+    color: '#6C757D',
+  },
+  goalSubtextSelected: {
     color: '#FFFFFF',
     opacity: 0.8,
   },

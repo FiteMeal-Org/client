@@ -5,10 +5,9 @@ import { TouchableOpacity, View } from 'react-native';
 
 // Import only main tab screens
 import HomeScreen from '../screens/HomeScreen';
-import SearchScreen from '../screens/SearchScreen';
-import AccountScreen from '../screens/AccountScreen';
 import AddPlanScreen from '../screens/AddPlanScreen';
 import PlansTypeScreen from '../screens/PlansTypeScreen';
+import AccountScreen from '../screens/AccountScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -21,11 +20,9 @@ export default function BerandaNavigator() {
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Search') {
-            iconName = focused ? 'search' : 'search-outline';
           } else if (route.name === 'Plans') {
             iconName = focused ? 'calendar' : 'calendar-outline';
-          } else if (route.name === 'Account') {
+          } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
 
@@ -42,6 +39,7 @@ export default function BerandaNavigator() {
           height: 65,
           justifyContent: 'center',
           alignItems: 'center',
+          paddingHorizontal: 10,
         },
         tabBarLabelStyle: {
           fontSize: 10,
@@ -58,16 +56,39 @@ export default function BerandaNavigator() {
         }}
       />
 
-      {/* Search Tab */}
+      {/* Add Button */}
       <Tab.Screen
-        name="Search"
-        component={SearchScreen}
+        name="Add"
+        component={AddPlanScreen}
         options={{
-          tabBarLabel: 'Search',
+          tabBarLabel: 'Add',
+          tabBarIcon: ({ focused, color, size }) => (
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: focused ? '#8B4A6B' : '#F3F4F6',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 4,
+              }}>
+              <Ionicons
+                name={focused ? 'add' : 'add-outline'}
+                size={24}
+                color={focused ? 'white' : '#8B4A6B'}
+              />
+            </View>
+          ),
+          tabBarLabelStyle: {
+            fontSize: 10,
+            marginBottom: 5,
+            marginTop: -4,
+          },
         }}
       />
 
-      {/* Plans Tab - Mengarah ke PlansTypeScreen */}
+      {/* Plans Tab */}
       <Tab.Screen
         name="Plans"
         component={PlansTypeScreen}
@@ -76,50 +97,12 @@ export default function BerandaNavigator() {
         }}
       />
 
-      {/* Add Button (Floating) */}
+      {/* Profile Tab */}
       <Tab.Screen
-        name="Add"
-        component={AddPlanScreen}
-        options={{
-          tabBarButton: (props) => (
-            <TouchableOpacity
-              style={{
-                top: -10,
-                justifyContent: 'center',
-                alignItems: 'center',
-                width: 70,
-                height: 70,
-              }}
-              onPress={(e) => {
-                props.onPress && props.onPress(e);
-              }}>
-              <View
-                style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: 25,
-                  backgroundColor: '#8B4A6B',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  elevation: 3,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 3.84,
-                }}>
-                <Ionicons name="add" size={30} color="white" />
-              </View>
-            </TouchableOpacity>
-          ),
-        }}
-      />
-
-      {/* Account Tab */}
-      <Tab.Screen
-        name="Account"
+        name="Profile"
         component={AccountScreen}
         options={{
-          tabBarLabel: 'Account',
+          tabBarLabel: 'Profile',
         }}
       />
     </Tab.Navigator>

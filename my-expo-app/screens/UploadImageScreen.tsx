@@ -180,7 +180,7 @@ export default function UploadImageScreen({ navigation, route }: UploadImageScre
       console.log('- plansId:', finalPlansId);
       console.log('- userId:', userId);
 
-      const uploadUrl = 'https://fh8mlxkf-3000.asse.devtunnels.ms/api/upload';
+      const uploadUrl = 'https://api-fitemeal.vercel.app/api/upload';
       console.log('🚀 Uploading to:', uploadUrl);
 
       // Upload using fetch instead of axios
@@ -206,11 +206,15 @@ export default function UploadImageScreen({ navigation, route }: UploadImageScre
 
       Alert.alert('Success!', 'Your meal photo has been uploaded successfully!', [
         {
-          text: 'View Plans',
+          text: 'View Generated Plans',
           onPress: () => {
-            // Reset form dan navigate back to Plans
+            // Reset form dan navigate back to Plans with upload view mode
             setSelectedImage(null);
-            navigation.navigate('Plans', { refresh: true });
+            navigation.navigate('Plans', {
+              refresh: true,
+              viewMode: 'upload',
+              planId: finalPlansId,
+            });
           },
         },
         {

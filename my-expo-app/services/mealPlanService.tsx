@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-const BASE_URL = 'https://fh8mlxkf-3000.asse.devtunnels.ms';
+const BASE_URL = 'https://api-fitemeal.vercel.app';
 
 // HAPUS SEMUA function checkUserMealPlan yang lama!
 // PASTIKAN HANYA ADA SATU function ini di file
