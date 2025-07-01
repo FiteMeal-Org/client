@@ -41,7 +41,7 @@ export default function PremiumScreen() {
       }
 
       const orderId = generateOrderId();
-      const amount = 50000; // 50,000 IDR for premium
+      const amount = 1000000; // 1,000,000 IDR for premium
 
       const response = await fetch(`${BASE_URL}/api/midtrans-token`, {
         method: 'POST',
@@ -89,7 +89,7 @@ export default function PremiumScreen() {
             text: 'OK',
             onPress: () => {
               setShowPayment(false);
-              navigation.navigate('Home' as never);
+              navigation.navigate('BerandaNavigator' as never);
             },
           },
         ]
@@ -225,7 +225,7 @@ export default function PremiumScreen() {
         <View style={styles.pricingContainer}>
           <Text style={styles.pricingTitle}>Premium Plan</Text>
           <View style={styles.priceRow}>
-            <Text style={styles.price}>Rp 50,000</Text>
+            <Text style={styles.price}>Rp 1,000,000</Text>
             <Text style={styles.pricePeriod}>/ month</Text>
           </View>
           <Text style={styles.pricingNote}>
