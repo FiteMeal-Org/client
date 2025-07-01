@@ -18,6 +18,11 @@ import {
   checkUserExercisePlan,
 } from '../services/mealPlanService';
 import { getUserProfile } from '../services/profileService'; // Import profile service
+import {
+  validateProfileForPlanCreation,
+  showProfileIncompleteAlert,
+  showProfileErrorAlert,
+} from '../services/profileValidationService';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -231,21 +236,51 @@ export default function HomeScreen() {
     setTotalMeals(0);
   };
 
+  const validateAndNavigate = async (navigateCallback: () => void) => {
+    try {
+      console.log('🔍 HomeScreen: Starting profile validation...');
+      const validation = await validateProfileForPlanCreation();
+
+      if (validation.isValid) {
+        console.log('✅ HomeScreen: Profile is valid, proceeding with navigation');
+        navigateCallback();
+      } else {
+        console.log('❌ HomeScreen: Profile incomplete:', validation.missingFields);
+        if (validation.missingFields.includes('profile_error')) {
+          showProfileErrorAlert(navigation);
+        } else {
+          showProfileIncompleteAlert(validation.missingFields, navigation);
+        }
+      }
+    } catch (error) {
+      console.error('❌ HomeScreen: Error during validation:', error);
+      showProfileErrorAlert(navigation);
+    }
+  };
+
   // Handle banner press
   const handleMealPlanBannerPress = () => {
     if (hasMealPlan) {
-      navigation.navigate('PlansScreen' as never);
+      // If user has meal plan, navigate to Plans screen
+      (navigation as any).navigate('Plans');
     } else {
-      navigation.navigate('PlanSelection' as never);
+      // If no meal plan, validate profile first then navigate to plan creation
+      validateAndNavigate(() => {
+        (navigation as any).navigate('BerandaNavigator', { screen: 'Add' });
+      });
     }
   };
 
   // Handle exercise plan banner press
   const handleExercisePlanBannerPress = () => {
     if (hasExercisePlan) {
-      navigation.navigate('ExercisePlansScreen' as never);
+      // If user has exercise plan, navigate to Exercise Plans screen
+      (navigation as any).navigate('ExercisePlans');
     } else {
-      navigation.navigate('MealExercisePlan' as never);
+      // If no exercise plan, validate profile first then navigate to plan creation
+      validateAndNavigate(() => {
+        (navigation as any).navigate('BerandaNavigator', { screen: 'Add' });
+      });
     }
   };
 
@@ -541,13 +576,9 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Banner with Swipe Support */}
+        {/* Banner with Swipe Support - DISABLED */}
         <View style={styles.bannerSection}>
-          <TouchableOpacity
-            style={styles.bannerContainer}
-            onPress={handleMealPlanBannerPress}
-            activeOpacity={0.9}
-            {...panResponder.panHandlers}>
+          <View style={styles.bannerContainer}>
             <Animated.Image
               source={{ uri: bannerImages[currentBannerIndex].uri }}
               style={[
@@ -568,7 +599,7 @@ export default function HomeScreen() {
               <Text style={styles.bannerTitle}>{bannerImages[currentBannerIndex].title}</Text>
               <Text style={styles.bannerSubtitle}>{bannerImages[currentBannerIndex].subtitle}</Text>
             </Animated.View>
-          </TouchableOpacity>
+          </View>
           <View style={styles.bannerIndicators}>
             {bannerImages.map((_, index) => (
               <TouchableOpacity

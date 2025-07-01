@@ -16,6 +16,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as SecureStore from 'expo-secure-store';
 import { API_CONFIG } from '../config/api';
+import {
+  validateProfileForPlanCreation,
+  showProfileIncompleteAlert,
+  showProfileErrorAlert,
+} from '../services/profileValidationService';
 
 interface UserProfile {
   id: string;
@@ -181,7 +186,6 @@ export default function AddScreen({ navigation }: { navigation: any }) {
 
   const handleCreatePlan = async () => {
     console.log('🚀 Starting meal plan creation...');
-    console.log('📊 Current userProfile:', userProfile);
 
     // Validasi form
     if (!name.trim()) {
@@ -199,58 +203,34 @@ export default function AddScreen({ navigation }: { navigation: any }) {
       return;
     }
 
-    // Validasi data profile dengan logging detail
-    if (!userProfile) {
-      console.log('❌ User profile is null/undefined');
-      Alert.alert('Profile Error', 'User profile not loaded. Please try reloading your profile.', [
-        {
-          text: 'Reload Profile',
-          onPress: () => loadUserProfile(),
-        },
-        {
-          text: 'Go to Profile',
-          onPress: () => navigation.navigate('ProfileForm'),
-        },
-      ]);
+    if (!goals) {
+      Alert.alert('Error', 'Please select goals');
       return;
     }
 
-    console.log('🔍 Checking profile completeness...');
-    console.log('Age:', userProfile.age);
-    console.log('Height:', userProfile.height);
-    console.log('Weight:', userProfile.weight);
-    console.log('Goals:', userProfile.goals);
-    console.log('Activity Level:', userProfile.activity_level);
-    console.log('Gender:', userProfile.gender);
-
-    const missingFields = [];
-    if (!userProfile.age) missingFields.push('age');
-    if (!userProfile.height) missingFields.push('height');
-    if (!userProfile.weight) missingFields.push('weight');
-    // Goals opsional, karena tidak ada di response
-    if (!userProfile.activity_level) missingFields.push('activity level');
-    if (!userProfile.gender) missingFields.push('gender');
-
-    if (missingFields.length > 0) {
-      console.log('❌ Missing profile fields:', missingFields);
-      Alert.alert(
-        'Incomplete Profile',
-        `Please complete your profile. Missing fields: ${missingFields.join(', ')}`,
-        [
-          {
-            text: 'Complete Profile',
-            onPress: () => navigation.navigate('ProfileForm'),
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-        ]
-      );
-      return;
-    }
-
+    // Validasi profil menggunakan service
     try {
+      console.log('🔍 AddPlanScreen: Validating profile...');
+      const validation = await validateProfileForPlanCreation();
+
+      if (!validation.isValid) {
+        console.log('❌ AddPlanScreen: Profile incomplete:', validation.missingFields);
+        if (validation.missingFields.includes('profile_error')) {
+          showProfileErrorAlert(navigation);
+        } else {
+          showProfileIncompleteAlert(validation.missingFields, navigation);
+        }
+        return;
+      }
+
+      console.log('✅ AddPlanScreen: Profile is valid, proceeding with plan creation');
+      // Continue with plan creation using validation.profile
+      const userProfile = validation.profile;
+
+      if (!userProfile) {
+        throw new Error('Profile data is missing');
+      }
+
       setLoading(true);
 
       const token = await SecureStore.getItemAsync('access_token');
@@ -267,7 +247,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
         weight: userProfile.weight,
         height: userProfile.height,
         gender: userProfile.gender,
-        activity_level: userProfile.activity_level,
+        activity_level: userProfile.activityLevel,
         goals: goals || 'General health', // Default jika tidak ada goals
         preferences: preferences.trim(),
         duration: parseInt(duration),
@@ -480,7 +460,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
           {/* Goals */}
           <Text style={styles.inputLabel}>Goals</Text>
           <View style={styles.goalsContainer}>
-            {['Bulking', 'Maintenance', 'Diet'].map((goal) => (
+            {['Bulking', 'Maintenance', 'Cutting'].map((goal) => (
               <TouchableOpacity
                 key={goal}
                 style={[styles.goalOption, goals === goal && styles.goalOptionSelected]}

@@ -10,25 +10,61 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import {
+  validateProfileForPlanCreation,
+  showProfileIncompleteAlert,
+  showProfileErrorAlert,
+} from '../services/profileValidationService';
 
 type PlanSelectionScreenProps = {
   navigation: any;
 };
 
 export default function PlanSelectionScreen({ navigation }: PlanSelectionScreenProps) {
+  const validateAndNavigate = async (navigateCallback: () => void) => {
+    try {
+      console.log('🔍 PlanSelection: Starting profile validation...');
+      const validation = await validateProfileForPlanCreation();
+
+      if (validation.isValid) {
+        console.log('✅ PlanSelection: Profile is valid, proceeding with navigation');
+        navigateCallback();
+      } else {
+        console.log('❌ PlanSelection: Profile incomplete:', validation.missingFields);
+        if (validation.missingFields.includes('profile_error')) {
+          showProfileErrorAlert(navigation.getParent() || navigation);
+        } else {
+          showProfileIncompleteAlert(
+            validation.missingFields,
+            navigation.getParent() || navigation
+          );
+        }
+      }
+    } catch (error) {
+      console.error('❌ PlanSelection: Error during validation:', error);
+      showProfileErrorAlert(navigation.getParent() || navigation);
+    }
+  };
+
   const handleMealPlanPress = () => {
-    // Navigate to the stack screen from tab navigator
-    navigation.getParent()?.navigate('AddCompletePlan');
+    validateAndNavigate(() => {
+      // Navigate to the stack screen from tab navigator
+      navigation.getParent()?.navigate('AddCompletePlan');
+    });
   };
 
   const handleExercisePlanPress = () => {
-    // Navigate to the stack screen from tab navigator
-    navigation.getParent()?.navigate('AddExercise');
+    validateAndNavigate(() => {
+      // Navigate to the stack screen from tab navigator
+      navigation.getParent()?.navigate('AddExercise');
+    });
   };
 
   const handleMealExercisePlanPress = () => {
-    // Navigate to the stack screen from tab navigator
-    navigation.getParent()?.navigate('AddMealExercisePlan');
+    validateAndNavigate(() => {
+      // Navigate to the stack screen from tab navigator
+      navigation.getParent()?.navigate('AddMealExercisePlan');
+    });
   };
 
   const handleGoBack = () => {
