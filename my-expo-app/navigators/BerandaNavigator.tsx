@@ -5,7 +5,7 @@ import { TouchableOpacity, View } from 'react-native';
 
 // Import only main tab screens
 import HomeScreen from '../screens/HomeScreen';
-import AddPlanScreen from '../screens/AddPlanScreen';
+import PlanSelectionScreen from '../screens/PlanSelectionScreen';
 import PlansTypeScreen from '../screens/PlansTypeScreen';
 import AccountScreen from '../screens/AccountScreen';
 
@@ -59,7 +59,7 @@ export default function BerandaNavigator() {
       {/* Add Button */}
       <Tab.Screen
         name="Add"
-        component={AddPlanScreen}
+        component={PlanSelectionScreen}
         options={{
           tabBarLabel: 'Add',
           tabBarIcon: ({ focused, color, size }) => (

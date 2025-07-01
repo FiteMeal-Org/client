@@ -370,57 +370,54 @@ export default function ExercisePlansScreen() {
         {/* Select Exercise Plan Section */}
         <Text style={styles.sectionHeader}>Select Exercise Plan</Text>
 
-        {(activeTab === 'ongoing' ? ongoingPlans : upcomingPlans).map((plan) => {
-          const isSelected = selectedPlan === plan._id;
-          const startDate = new Date(plan.startDate);
-          const endDate = new Date(plan.endDate);
+        <ScrollView 
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.plansScrollContent}
+          style={styles.plansScrollContainer}>
+          {(activeTab === 'ongoing' ? ongoingPlans : upcomingPlans).map((plan) => {
+            const isSelected = selectedPlan === plan._id;
+            const startDate = new Date(plan.startDate);
+            const endDate = new Date(plan.endDate);
 
-          return (
-            <TouchableOpacity
-              key={plan._id}
-              style={[styles.planCard, isSelected && styles.selectedPlanCard]}
-              onPress={() => handlePlanSelect(plan._id)}>
-              <View style={styles.planCardContent}>
-                <Text style={[styles.planTitle, isSelected && styles.selectedPlanTitle]}>
-                  {plan.name}
-                </Text>
-                <Text style={[styles.planDate, isSelected && styles.selectedPlanDate]}>
-                  {startDate.toLocaleDateString('id-ID', {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}{' '}
-                  -{' '}
-                  {endDate.toLocaleDateString('id-ID', {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </Text>
-                <Text style={[styles.planDuration, isSelected && styles.selectedPlanDuration]}>
-                  {plan.todoList.length} days program
-                </Text>
+            return (
+              <TouchableOpacity
+                key={plan._id}
+                style={[styles.planCard, isSelected && styles.selectedPlanCard]}
+                onPress={() => handlePlanSelect(plan._id)}>
+                <View style={styles.planCardContent}>
+                  <Text style={[styles.planTitle, isSelected && styles.selectedPlanTitle]}>
+                    {plan.name}
+                  </Text>
+                  <Text style={[styles.planDate, isSelected && styles.selectedPlanDate]}>
+                    {startDate.toLocaleDateString('id-ID', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}{' '}
+                    -{' '}
+                    {endDate.toLocaleDateString('id-ID', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                  <Text style={[styles.planDuration, isSelected && styles.selectedPlanDuration]}>
+                    {plan.todoList.length} days program
+                  </Text>
+                </View>
 
                 {isSelected && (
-                  <TouchableOpacity
-                    style={styles.uploadPhotoButton}
-                    onPress={() => navigation.navigate('UploadImageScreen')}>
-                    <Text style={styles.uploadPhotoIcon}>📷</Text>
-                    <Text style={styles.uploadPhotoText}>Upload Photo</Text>
-                  </TouchableOpacity>
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusBadgeText}>Sedang Berjalan</Text>
+                  </View>
                 )}
-              </View>
-
-              {isSelected && (
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusBadgeText}>Sedang Berjalan</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
         {/* Select Day Section */}
         {selectedPlan && (
@@ -587,6 +584,13 @@ const styles = StyleSheet.create({
   },
 
   // Plan Cards
+  plansScrollContainer: {
+    marginBottom: 20,
+  },
+  plansScrollContent: {
+    paddingRight: 20,
+    gap: 16,
+  },
   planCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -594,6 +598,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 2,
     borderColor: '#E0E0E0',
+    minWidth: 280,
+    width: 280,
   },
   selectedPlanCard: {
     borderColor: '#FF9800',
@@ -626,25 +632,6 @@ const styles = StyleSheet.create({
   },
   selectedPlanDuration: {
     color: '#666666',
-  },
-  uploadPhotoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  uploadPhotoIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  uploadPhotoText: {
-    fontSize: 14,
-    color: '#666666',
-    fontWeight: '500',
   },
   statusBadge: {
     position: 'absolute',
