@@ -24,6 +24,7 @@ import {
   showProfileErrorAlert,
 } from '../services/profileValidationService';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -51,6 +52,9 @@ export default function HomeScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
+  // User state for premium check
+  const [user, setUser] = useState<any>(null);
+
   // Existing state variables
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -67,11 +71,46 @@ export default function HomeScreen() {
       console.log('📱 HomeScreen: Profile data received:', profileData);
 
       setProfile(profileData);
+      setUser(profileData); // Set user data for premium check
     } catch (error) {
       // console.error('❌ HomeScreen: Error loading profile:', error);
       setProfile(null);
+      setUser(null);
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  // Handle premium feature press
+  const handlePremiumFeaturePress = (featureName: string) => {
+    if (!user?.isPremium) {
+      import('react-native').then(({ Alert }) => {
+        Alert.alert(
+          'Premium Feature',
+          `${featureName} is a premium feature. Upgrade to access this functionality.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Go Premium', 
+              onPress: () => navigation.navigate('Premium' as never) 
+            },
+          ]
+        );
+      });
+      return;
+    }
+    
+    // Handle navigation for premium users with profile validation
+    if (featureName === 'Exercise Plan') {
+      // Validate profile first, then navigate
+      validateAndNavigate(() => {
+        (navigation as any).navigate('BerandaNavigator', { screen: 'Add' });
+      });
+    } else if (featureName === 'Upload Photo') {
+      // Validate profile first, then navigate to upload
+      validateAndNavigate(() => {
+        navigation.navigate('UploadImage' as never);
+      });
     }
   };
 
@@ -277,10 +316,8 @@ export default function HomeScreen() {
       // If user has exercise plan, navigate to Exercise Plans screen
       (navigation as any).navigate('ExercisePlans');
     } else {
-      // If no exercise plan, validate profile first then navigate to plan creation
-      validateAndNavigate(() => {
-        (navigation as any).navigate('BerandaNavigator', { screen: 'Add' });
-      });
+      // Check if user is premium before allowing access
+      handlePremiumFeaturePress('Exercise Plan');
     }
   };
 
@@ -743,6 +780,11 @@ export default function HomeScreen() {
                     <Text style={styles.activeText}>Active</Text>
                   </View>
                 )}
+                {!hasExercisePlan && !user?.isPremium && (
+                  <View style={styles.premiumBadge}>
+                    <Ionicons name="star" size={16} color="#FFD700" />
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
           </View>
@@ -751,7 +793,10 @@ export default function HomeScreen() {
         {/* Upload Image Section - keep existing */}
         <View style={styles.uploadSection}>
           <Text style={styles.sectionTitle}>Meal Planning</Text>
-          <TouchableOpacity style={styles.uploadBannerCard}>
+          <TouchableOpacity 
+            style={styles.uploadBannerCard}
+            onPress={() => handlePremiumFeaturePress('Upload Photo')}
+          >
             <Image
               source={{
                 uri: 'https://media.istockphoto.com/id/1241881284/photo/hands-of-cook-photographing-mexican-tacos.jpg?s=612x612&w=0&k=20&c=zFkJ71PlN32cgEpEiuKxVwb5f89fZoI9xt4xfyRhQUM=',
@@ -775,6 +820,11 @@ export default function HomeScreen() {
                   <Text style={styles.uploadBadgeText}>Upload Photo</Text>
                 </View>
               </View>
+              {!user?.isPremium && (
+                <View style={styles.premiumBadge}>
+                  <Ionicons name="star" size={16} color="#FFD700" />
+                </View>
+              )}
             </View>
           </TouchableOpacity>
         </View>
@@ -800,6 +850,16 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: '#10B981',
     marginRight: 4,
+  },
+  premiumBadge: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    backgroundColor: 'rgba(31, 41, 55, 0.8)',
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   activeText: {
     fontSize: 9,

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ImageBackground,
   SafeAreaView,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,12 +16,56 @@ import {
   showProfileIncompleteAlert,
   showProfileErrorAlert,
 } from '../services/profileValidationService';
+import { getUserProfile } from '../services/profileService';
 
 type PlanSelectionScreenProps = {
   navigation: any;
 };
 
 export default function PlanSelectionScreen({ navigation }: PlanSelectionScreenProps) {
+  const [user, setUser] = useState<any>(null);
+
+  // Load user data to check premium status
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const userData = await getUserProfile();
+        setUser(userData);
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        setUser(null);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
+  // Handle premium feature check
+  const handlePremiumFeaturePress = (featureName: string, navigateCallback: () => void) => {
+    if (!user?.isPremium) {
+      Alert.alert(
+        'Premium Feature',
+        `${featureName} is a premium feature. Upgrade to access this functionality.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Go Premium', 
+            onPress: () => {
+              // Navigate back to parent and then to Premium screen
+              const parent = navigation.getParent();
+              if (parent) {
+                parent.navigate('Premium');
+              }
+            }
+          },
+        ]
+      );
+      return;
+    }
+    
+    // If premium user, proceed with navigation
+    navigateCallback();
+  };
   const validateAndNavigate = async (navigateCallback: () => void) => {
     try {
       console.log('🔍 PlanSelection: Starting profile validation...');
@@ -54,16 +99,20 @@ export default function PlanSelectionScreen({ navigation }: PlanSelectionScreenP
   };
 
   const handleExercisePlanPress = () => {
-    validateAndNavigate(() => {
-      // Navigate to the stack screen from tab navigator
-      navigation.getParent()?.navigate('AddExercise');
+    handlePremiumFeaturePress('Exercise Plan', () => {
+      validateAndNavigate(() => {
+        // Navigate to the stack screen from tab navigator
+        navigation.getParent()?.navigate('AddExercise');
+      });
     });
   };
 
   const handleMealExercisePlanPress = () => {
-    validateAndNavigate(() => {
-      // Navigate to the stack screen from tab navigator
-      navigation.getParent()?.navigate('AddMealExercisePlan');
+    handlePremiumFeaturePress('Meal & Exercise Plan', () => {
+      validateAndNavigate(() => {
+        // Navigate to the stack screen from tab navigator
+        navigation.getParent()?.navigate('AddMealExercisePlan');
+      });
     });
   };
 
@@ -150,6 +199,11 @@ export default function PlanSelectionScreen({ navigation }: PlanSelectionScreenP
                     <Text style={styles.feature}>• Goal-based exercises</Text>
                     <Text style={styles.feature}>• Flexible duration</Text>
                   </View>
+                  {!user?.isPremium && (
+                    <View style={styles.premiumBadge}>
+                      <Ionicons name="star" size={16} color="#FFD700" />
+                    </View>
+                  )}
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -175,6 +229,11 @@ export default function PlanSelectionScreen({ navigation }: PlanSelectionScreenP
                     <Text style={styles.feature}>• Integrated nutrition & fitness</Text>
                     <Text style={styles.feature}>• Comprehensive tracking</Text>
                   </View>
+                  {!user?.isPremium && (
+                    <View style={styles.premiumBadge}>
+                      <Ionicons name="star" size={16} color="#FFD700" />
+                    </View>
+                  )}
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -265,6 +324,17 @@ const styles = StyleSheet.create({
   },
   optionContent: {
     alignItems: 'center',
+    position: 'relative',
+  },
+  premiumBadge: {
+    position: 'absolute',
+    right: -10,
+    top: -10,
+    backgroundColor: 'rgba(31, 41, 55, 0.8)',
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   iconContainer: {
     width: 80,
