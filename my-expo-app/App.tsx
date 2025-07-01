@@ -16,6 +16,7 @@ import AddExerciseScreen from './screens/AddExerciseScreen';
 import ProfileFormScreen from './screens/ProfileFormScreen';
 import MealExercisePlanScreen from './screens/MealExercisePlanScreen';
 import AddCompletePlan from './screens/AddCompletePlan';
+import AddMealExercisePlanScreen from './screens/AddMealExercisePlanScreen';
 import AccountScreen from 'screens/AccountScreen';
 
 type IAuthContext = {
@@ -59,6 +60,7 @@ export default function App() {
               <Stack.Screen name="ExercisePlansScreen" component={ExercisePlansScreen} />
               <Stack.Screen name="PlanSelection" component={PlanSelectionScreen} />
               <Stack.Screen name="AddExercise" component={AddExerciseScreen} />
+              <Stack.Screen name="AddMealExercisePlan" component={AddMealExercisePlanScreen} />
               <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
               <Stack.Screen name="MealExercisePlan" component={MealExercisePlanScreen} />
               <Stack.Screen name="AddCompletePlan" component={AddCompletePlan} />
