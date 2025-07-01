@@ -62,6 +62,10 @@ export default function HomeScreen() {
   // User state for premium check
   const [user, setUser] = useState<any>(null);
 
+  // Card carousel states
+  const [currentCardIndex, setCurrentCardIndex] = useState(1); // Start with center card (meal plan)
+  const scrollViewRef = useRef<ScrollView>(null);
+
   // Existing state variables
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -664,6 +668,19 @@ export default function HomeScreen() {
     console.log('- profileLoading:', profileLoading);
   }, []);
 
+  // Scroll to center card on component mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (scrollViewRef.current) {
+        // Scroll to position 3 (middle card in the infinite array - index 4 which is card type 1)
+        scrollViewRef.current.scrollTo({ x: screenWidth * 3, animated: false });
+        setCurrentCardIndex(1); // Set to meal plan card (center)
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
   const bannerImages = [
     {
       uri: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=400&h=200&fit=crop',
@@ -798,89 +815,123 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Action Cards - keep existing with dynamic meal plan status */}
+        {/* Action Cards - Infinite Scrollable Cards with Dynamic Overlap */}
         <View style={styles.actionSection}>
-          <View style={styles.actionRow}>
-            {/* Dynamic Meal Plan Card */}
-            <TouchableOpacity style={styles.actionCard} onPress={handleMealPlanBannerPress}>
-              <Image
-                source={{
-                  uri: hasMealPlan
-                    ? 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=200&h=120&fit=crop'
-                    : 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=200&h=120&fit=crop',
-                }}
-                style={styles.actionImage}
-              />
-              <LinearGradient
-                colors={
-                  hasMealPlan
-                    ? ['transparent', 'rgba(34, 197, 94, 0.2)', 'rgba(34, 197, 94, 0.7)']
-                    : ['transparent', 'rgba(139, 74, 107, 0.2)', 'rgba(139, 74, 107, 0.7)']
-                }
-                style={styles.actionGradient}
-              />
-              <View style={styles.actionOverlay}>
-                <Text style={styles.actionTitle}>
-                  {hasMealPlan ? 'YOUR MEAL PLAN' : 'GET A MEAL PLAN'}
-                </Text>
-                <Text style={styles.actionSubtitle}>
-                  {hasMealPlan
-                    ? `${mealPlanCount} active plan${mealPlanCount > 1 ? 's' : ''}`
-                    : 'Personalized nutrition'}
-                </Text>
-                {hasMealPlan && (
-                  <View style={styles.activePlanIndicator}>
-                    <View style={styles.activeDot} />
-                    <Text style={styles.activeText}>Active</Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
+          <ScrollView 
+            ref={scrollViewRef}
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            snapToInterval={screenWidth}
+            snapToAlignment="center"
+            pagingEnabled={true}
+            onMomentumScrollEnd={(event) => {
+              const scrollX = event.nativeEvent.contentOffset.x;
+              const cardIndex = Math.round(scrollX / screenWidth);
+              setCurrentCardIndex(cardIndex % 3); // Keep it within 0-2 range for 3 cards
+            }}
+            contentContainerStyle={styles.infiniteCardsContainer}
+            style={styles.cardsScrollView}
+          >
+            {/* Generate infinite scroll cards - 9 cards (3x3) for seamless looping */}
+            {[0, 1, 2, 0, 1, 2, 0, 1, 2].map((cardType, index) => {
+              const isExercise = cardType === 0;
+              const isMeal = cardType === 1; 
+              const isMealExercise = cardType === 2;
+              const currentIndex = index % 3;
+              const isActive = currentIndex === currentCardIndex;
 
-            {/* Dynamic Exercise Plan Card */}
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={handleExercisePlanBannerPress}
-              activeOpacity={0.8}>
-              <Image
-                source={{
-                  uri: hasExercisePlan
-                    ? 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=200&h=120&fit=crop'
-                    : 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=200&h=120&fit=crop',
-                }}
-                style={styles.actionImage}
-              />
-              <LinearGradient
-                colors={
-                  hasExercisePlan
-                    ? ['transparent', 'rgba(34, 197, 94, 0.2)', 'rgba(34, 197, 94, 0.7)']
-                    : ['transparent', 'rgba(255, 159, 64, 0.2)', 'rgba(255, 159, 64, 0.7)']
-                }
-                style={styles.actionGradient}
-              />
-              <View style={styles.actionOverlay}>
-                <Text style={styles.actionTitle}>
-                  {hasExercisePlan ? 'YOUR EXERCISE PLAN' : 'GET EXERCISE PLAN'}
-                </Text>
-                <Text style={styles.actionSubtitle}>
-                  {hasExercisePlan
-                    ? `${exercisePlanCount} active plan${exercisePlanCount > 1 ? 's' : ''}`
-                    : 'Fitness & wellness'}
-                </Text>
-                {hasExercisePlan && (
-                  <View style={styles.activePlanIndicator}>
-                    <View style={styles.activeDot} />
-                    <Text style={styles.activeText}>Active</Text>
-                  </View>
-                )}
-                {!hasExercisePlan && !user?.isPremium && (
-                  <View style={styles.premiumBadge}>
-                    <Ionicons name="star" size={16} color="#FFD700" />
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-          </View>
+              return (
+                <View key={index} style={[styles.cardContainer]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.infinitePlanCard,
+                      isActive && styles.activeCard,
+                      !isActive && styles.inactiveCard
+                    ]}
+                    onPress={() => {
+                      if (isExercise) {
+                        handleExercisePlanBannerPress();
+                      } else if (isMeal) {
+                        handleMealPlanBannerPress();
+                      } else {
+                        if (!user?.isPremium) {
+                          handlePremiumFeaturePress('Meal & Exercise Plan');
+                        } else {
+                          validateAndNavigate(() => {
+                            (navigation as any).navigate('MealExercisePlan');
+                          });
+                        }
+                      }
+                    }}
+                    activeOpacity={0.8}>
+                    
+                    {/* Card Background */}
+                    <View style={styles.cardBackground}>
+                      {/* Product Image */}
+                      <Image
+                        source={{
+                          uri: isExercise 
+                            ? 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop&auto=format'
+                            : isMeal
+                            ? 'https://images.unsplash.com/photo-1557800636-894a64c1696f?w=400&h=300&fit=crop&auto=format'
+                            : 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=300&fit=crop&auto=format',
+                        }}
+                        style={styles.productImage}
+                      />
+                      
+                      {/* Rating Badge - Top Left */}
+                      <View style={styles.ratingBadge}>
+                        <Ionicons name="star" size={12} color="#FFD700" />
+                        <Text style={styles.ratingText}>
+                          {isExercise ? '4.8' : isMeal ? '4.9' : '4.7'}
+                        </Text>
+                      </View>
+                      
+                      {/* Content Section - Bottom */}
+                      <View style={styles.cardContent}>
+                        <Text style={styles.cardTitle}>
+                          {isExercise 
+                            ? (hasExercisePlan ? 'Active Exercise Plan' : 'Fitness Program')
+                            : isMeal
+                            ? (hasMealPlan ? 'Active Meal Plan' : 'Fresh Nutrition')
+                            : (hasMealExercisePlan ? 'Complete Wellness' : 'Full Package')}
+                        </Text>
+                        <Text style={styles.cardPrice}>
+                          {isExercise 
+                            ? (hasExercisePlan ? `${exercisePlanCount} Plans` : '$29.99')
+                            : isMeal
+                            ? (hasMealPlan ? `${mealPlanCount} Plans` : '$19.99')
+                            : (hasMealExercisePlan ? `${mealExercisePlanCount} Plans` : '$39.99')}
+                        </Text>
+                      </View>
+                      
+                      {/* Floating Action Button - Bottom Right */}
+                      <TouchableOpacity style={styles.floatingButton}>
+                        <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                      </TouchableOpacity>
+                      
+                      {/* Premium Badge for non-premium features */}
+                      {((isExercise && !hasExercisePlan) || (isMealExercise && !hasMealExercisePlan)) && !user?.isPremium && (
+                        <View style={styles.premiumIndicator}>
+                          <Ionicons name="star" size={12} color="#FFD700" />
+                          <Text style={styles.premiumText}>PRO</Text>
+                        </View>
+                      )}
+                      
+                      {/* Active Plan Indicator */}
+                      {((isExercise && hasExercisePlan) || (isMeal && hasMealPlan) || (isMealExercise && hasMealExercisePlan)) && (
+                        <View style={styles.cardActiveIndicator}>
+                          <View style={styles.activeDot} />
+                          <Text style={styles.activeLabel}>Active</Text>
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </ScrollView>
         </View>
 
         {/* Upload Image Section - keep existing */}
@@ -1221,8 +1272,282 @@ const styles = StyleSheet.create({
 
   // Action Section - Green gradients
   actionSection: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
     marginBottom: 24,
+    paddingVertical: 16,
+  },
+  
+  // Infinite scrollable cards layout
+  cardsScrollView: {
+    height: 240,
+  },
+  infiniteCardsContainer: {
+    alignItems: 'center',
+    height: 240,
+  },
+  cardContainer: {
+    width: screenWidth,
+    height: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infinitePlanCard: {
+    width: screenWidth * 0.85,
+    height: 200,
+    borderRadius: 20,
+    overflow: 'hidden',
+    position: 'relative',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+  },
+  cardBackground: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#1F2937', // Dark gray background
+    borderRadius: 20,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  productImage: {
+    width: '100%',
+    height: '65%',
+    resizeMode: 'cover',
+  },
+  ratingBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 10,
+    gap: 4,
+  },
+  ratingText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  cardContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '35%',
+    backgroundColor: '#1F2937',
+    padding: 16,
+    justifyContent: 'center',
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  cardPrice: {
+    fontSize: 14,
+    color: '#10B981', // Green color for price
+    fontWeight: '600',
+  },
+  floatingButton: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 36,
+    height: 36,
+    backgroundColor: '#EF4444', // Red color like in the reference image
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  premiumIndicator: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 10,
+    gap: 4,
+  },
+  premiumText: {
+    fontSize: 10,
+    color: '#FFD700',
+    fontWeight: 'bold',
+  },
+  cardActiveIndicator: {
+    position: 'absolute',
+    top: 50,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 10,
+    gap: 4,
+  },
+  activeLabel: {
+    fontSize: 10,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  activeCard: {
+    transform: [{ scale: 1.0 }],
+    zIndex: 10,
+    elevation: 15,
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+  },
+  inactiveCard: {
+    transform: [{ scale: 0.9 }],
+    opacity: 0.7,
+    zIndex: 1,
+  },
+  
+  // Overlapping cards container (tidak digunakan lagi)
+  overlappingCardsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 250,
+    position: 'relative',
+    paddingHorizontal: 30, 
+    marginHorizontal: 10,
+  },
+  
+  cardsContainer: {
+    paddingHorizontal: 0,
+    alignItems: 'center',
+    height: 240,
+  },
+  
+  // Card wrapper untuk mengatur posisi dan overlap
+  cardWrapper: {
+    width: screenWidth * 0.65,
+    height: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  leftCardWrapper: {
+    zIndex: 1,
+  },
+  centerCardWrapper: {
+    zIndex: 3,
+    marginLeft: -screenWidth * 0.2, // Overlap dengan card kiri
+  },
+  rightCardWrapper: {
+    zIndex: 2,
+    marginLeft: -screenWidth * 0.2, // Overlap dengan card tengah
+  },
+  
+  planCard: {
+    width: screenWidth * 0.7,
+    height: 200,
+    borderRadius: 20,
+    overflow: 'hidden',
+    position: 'relative',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+  },
+  scrollCard: {
+    // Base card style untuk scrollable cards
+  },
+  centerCardScroll: {
+    // Card tengah lebih besar dan lebih menonjol
+    transform: [{ scale: 1.05 }],
+    elevation: 15,
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+  },
+  leftCard: {
+    left: 0,
+    transform: [{ scale: 0.75 }, { rotate: '-8deg' }],
+    zIndex: 1,
+    opacity: 0.6,
+  },
+  centerCard: {
+    left: '50%',
+    marginLeft: -(screenWidth * 0.65) / 2,
+    transform: [{ scale: 1.0 }],
+    zIndex: 5,
+    elevation: 20,
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    shadowColor: '#000',
+  },
+  rightCard: {
+    right: 0,
+    transform: [{ scale: 0.75 }, { rotate: '8deg' }],
+    zIndex: 1,
+    opacity: 0.6,
+  },
+  planCardImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  planCardGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '70%',
+  },
+  planCardOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '70%',
+    backgroundColor: 'transparent',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    padding: 20,
+    paddingBottom: 24,
+  },
+  planCardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 6,
+    lineHeight: 20,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+  planCardSubtitle: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    opacity: 0.95,
+    lineHeight: 16,
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   actionRow: {
     flexDirection: 'row',
