@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-const BASE_URL = 'https://fh8mlxkf-3000.asse.devtunnels.ms';
+const BASE_URL = 'https://api-fitemeal.vercel.app';
 
 // HAPUS SEMUA function checkUserMealPlan yang lama!
 // PASTIKAN HANYA ADA SATU function ini di file
@@ -84,6 +84,84 @@ export const checkUserMealPlan = async () => {
     };
 
     console.log('📊 NEW FUNCTION - Returning default data due to error:', defaultReturn);
+    return defaultReturn;
+  }
+};
+
+// Function untuk mengecek exercise plan user
+export const checkUserExercisePlan = async () => {
+  console.log('🏋️ START: checkUserExercisePlan function called');
+  console.log('🏋️ TIMESTAMP:', new Date().toISOString());
+
+  try {
+    const token = await SecureStore.getItemAsync('access_token');
+
+    if (!token) {
+      console.log('❌ No access token found for exercise plan');
+      throw new Error('No access token found');
+    }
+
+    console.log('✅ Token found, making exercise plan API call...');
+    const response = await fetch(`${BASE_URL}/api/excercise`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    console.log('📡 Exercise Plan API Response status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log('❌ Exercise Plan API Error response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('📄 Exercise Plan API Response data:', result);
+
+    // Validate response structure
+    if (!result || typeof result !== 'object') {
+      console.log('❌ Invalid exercise plan response format:', result);
+      throw new Error('Invalid exercise plan response format');
+    }
+
+    // Extract exercise plan data - adjust based on your API structure
+    const data = result.data || result || {};
+    const ongoingExercisePlans = Array.isArray(data.ongoing) ? data.ongoing : [];
+    const upcomingExercisePlans = Array.isArray(data.upcoming) ? data.upcoming : [];
+
+    // If the API returns different structure, adjust accordingly
+    const allExercisePlans = Array.isArray(data)
+      ? data
+      : [...ongoingExercisePlans, ...upcomingExercisePlans];
+
+    const returnData = {
+      hasExercisePlan: allExercisePlans.length > 0,
+      exercisePlanCount: allExercisePlans.length,
+      ongoingExercisePlans,
+      upcomingExercisePlans,
+      allExercisePlans,
+    };
+
+    console.log(
+      '🏋️ Exercise Plan function - ABOUT TO RETURN:',
+      JSON.stringify(returnData, null, 2)
+    );
+    return returnData;
+  } catch (error) {
+    console.error('❌ ERROR in checkUserExercisePlan:', error);
+
+    const defaultReturn = {
+      hasExercisePlan: false,
+      exercisePlanCount: 0,
+      ongoingExercisePlans: [],
+      upcomingExercisePlans: [],
+      allExercisePlans: [],
+    };
+
+    console.log('📊 Exercise Plan - Returning default data due to error:', defaultReturn);
     return defaultReturn;
   }
 };

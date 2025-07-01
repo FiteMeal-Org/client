@@ -14,9 +14,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { getUserProfile, UserProfile } from '../services/profileService';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
+import { AuthContext } from '../App';
 
 export default function AccountScreen() {
   const navigation = useNavigation();
+  const { setToken } = React.useContext(AuthContext);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -55,10 +57,17 @@ export default function AccountScreen() {
         text: 'Logout',
         style: 'destructive',
         onPress: async () => {
-          // Clear tokens and navigate to login
-          await SecureStore.deleteItemAsync('access_token');
-          await SecureStore.deleteItemAsync('user_id');
-          navigation.navigate('Login' as never);
+          try {
+            // Clear tokens
+            await SecureStore.deleteItemAsync('access_token');
+            await SecureStore.deleteItemAsync('user_id');
+
+            // Update context to trigger re-render
+            setToken(null);
+          } catch (error) {
+            console.error('Error during logout:', error);
+            Alert.alert('Error', 'Failed to logout properly');
+          }
         },
       },
     ]);

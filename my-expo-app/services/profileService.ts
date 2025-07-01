@@ -11,7 +11,7 @@ export interface UserProfile {
   weight?: number;
   height?: number;
   gender?: 'male' | 'female';
-  activityLevel?: 'inactive' | 'somewhat_active' | 'active' | 'very_active';
+  activityLevel?: 'inactive' | 'somewhat active' | 'active' | 'very active';
   profilePicture?: string;
   createdAt?: string;
   updatedAt?: string;

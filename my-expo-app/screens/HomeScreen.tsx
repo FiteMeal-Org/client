@@ -12,8 +12,12 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { checkUserMealPlan, calculateTodayIntake } from '../services/mealPlanService';
-import { getProfile } from '../services/profileService'; // Import profile service
+import {
+  checkUserMealPlan,
+  calculateTodayIntake,
+  checkUserExercisePlan,
+} from '../services/mealPlanService';
+import { getUserProfile } from '../services/profileService'; // Import profile service
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -24,6 +28,11 @@ export default function HomeScreen() {
   const [hasMealPlan, setHasMealPlan] = useState(false);
   const [mealPlanCount, setMealPlanCount] = useState(0);
   const [mealPlanLoading, setMealPlanLoading] = useState(true);
+
+  // State untuk exercise plan
+  const [hasExercisePlan, setHasExercisePlan] = useState(false);
+  const [exercisePlanCount, setExercisePlanCount] = useState(0);
+  const [exercisePlanLoading, setExercisePlanLoading] = useState(true);
 
   // New states for calorie tracking
   const [intakeCalories, setIntakeCalories] = useState(0);
@@ -49,7 +58,7 @@ export default function HomeScreen() {
       setProfileLoading(true);
       console.log('📱 HomeScreen: Loading profile data...');
 
-      const profileData = await getProfile();
+      const profileData = await getUserProfile();
       console.log('📱 HomeScreen: Profile data received:', profileData);
 
       setProfile(profileData);
@@ -59,17 +68,6 @@ export default function HomeScreen() {
     } finally {
       setProfileLoading(false);
     }
-  };
-
-  // PENTING: Helper function untuk reset calorie data - HARUS DIATAS checkMealPlanStatus
-  const resetCalorieData = () => {
-    console.log('🔄 Resetting calorie data to defaults');
-    setIntakeCalories(0);
-    setTargetCalories(0);
-    setIntakePercentage(0);
-    setRemainingCalories(0);
-    setCompletedMeals(0);
-    setTotalMeals(0);
   };
 
   // Check meal plan status and calculate calories
@@ -187,6 +185,52 @@ export default function HomeScreen() {
     }
   };
 
+  // Check exercise plan status
+  const checkExercisePlanStatus = async () => {
+    try {
+      setExercisePlanLoading(true);
+      console.log('🏋️ HomeScreen: Checking exercise plan status...');
+
+      const result = await checkUserExercisePlan();
+      console.log('🏋️ HomeScreen: Exercise plan result received:', result);
+
+      if (result && typeof result === 'object') {
+        setHasExercisePlan(result.hasExercisePlan || false);
+        setExercisePlanCount(result.exercisePlanCount || 0);
+        console.log('🏋️ HomeScreen: Exercise plan status set:', {
+          hasExercisePlan: result.hasExercisePlan,
+          exercisePlanCount: result.exercisePlanCount,
+        });
+      } else {
+        console.log('❌ HomeScreen: Invalid exercise plan result');
+        setHasExercisePlan(false);
+        setExercisePlanCount(0);
+      }
+    } catch (error) {
+      console.error('❌ HomeScreen: Error checking exercise plan status:', error);
+      setHasExercisePlan(false);
+      setExercisePlanCount(0);
+    } finally {
+      setExercisePlanLoading(false);
+    }
+  };
+
+  // New function to handle both meal and exercise plan checks
+  const handlePlanChecks = async () => {
+    await Promise.all([checkMealPlanStatus(), checkExercisePlanStatus()]);
+  };
+
+  // PENTING: Helper function untuk reset calorie data - HARUS DIATAS checkMealPlanStatus
+  const resetCalorieData = () => {
+    console.log('🔄 Resetting calorie data to defaults');
+    setIntakeCalories(0);
+    setTargetCalories(0);
+    setIntakePercentage(0);
+    setRemainingCalories(0);
+    setCompletedMeals(0);
+    setTotalMeals(0);
+  };
+
   // Handle banner press
   const handleMealPlanBannerPress = () => {
     if (hasMealPlan) {
@@ -196,9 +240,18 @@ export default function HomeScreen() {
     }
   };
 
+  // Handle exercise plan banner press
+  const handleExercisePlanBannerPress = () => {
+    if (hasExercisePlan) {
+      navigation.navigate('ExercisePlansScreen' as never);
+    } else {
+      navigation.navigate('MealExercisePlan' as never);
+    }
+  };
+
   // Load initial data on mount
   useEffect(() => {
-    checkMealPlanStatus();
+    handlePlanChecks();
     loadProfileData();
   }, []);
 
@@ -209,7 +262,7 @@ export default function HomeScreen() {
 
       // Wrap dalam timeout untuk menghindari race condition
       const timeoutId = setTimeout(() => {
-        checkMealPlanStatus().catch((error) => {
+        handlePlanChecks().catch((error) => {
           console.error('❌ Error in useFocusEffect:', error);
         });
         loadProfileData().catch((error) => {
@@ -432,6 +485,9 @@ export default function HomeScreen() {
     console.log('- mealPlanLoading:', mealPlanLoading);
     console.log('- hasMealPlan:', hasMealPlan);
     console.log('- mealPlanCount:', mealPlanCount);
+    console.log('- exercisePlanLoading:', exercisePlanLoading);
+    console.log('- hasExercisePlan:', hasExercisePlan);
+    console.log('- exercisePlanCount:', exercisePlanCount);
     console.log('- profileLoading:', profileLoading);
   }, []);
 
@@ -465,7 +521,13 @@ export default function HomeScreen() {
             <Text style={styles.appTitle}>FITEMEAL</Text>
           </View>
           <TouchableOpacity
-            onPress={() => navigation.navigate('ProfileForm' as never)}
+            onPress={() => {
+              // Navigate to Profile tab in the same tab navigator
+              const parent = navigation.getParent();
+              if (parent) {
+                parent.navigate('AccountScreen');
+              }
+            }}
             style={styles.profileButton}>
             <Image
               source={
@@ -614,27 +676,42 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
 
-            {/* Exercise Plan Card - keep existing */}
+            {/* Dynamic Exercise Plan Card */}
             <TouchableOpacity
               style={styles.actionCard}
-              onPress={() => {
-                console.log('🏃‍♂️ GET MEAL & EXERCISE PLAN button pressed!');
-                navigation.navigate('MealExercisePlan' as never);
-              }}
+              onPress={handleExercisePlanBannerPress}
               activeOpacity={0.8}>
               <Image
                 source={{
-                  uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=200&h=120&fit=crop',
+                  uri: hasExercisePlan
+                    ? 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=200&h=120&fit=crop'
+                    : 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=200&h=120&fit=crop',
                 }}
                 style={styles.actionImage}
               />
               <LinearGradient
-                colors={['transparent', 'rgba(34, 197, 94, 0.2)', 'rgba(34, 197, 94, 0.6)']}
+                colors={
+                  hasExercisePlan
+                    ? ['transparent', 'rgba(34, 197, 94, 0.2)', 'rgba(34, 197, 94, 0.7)']
+                    : ['transparent', 'rgba(255, 159, 64, 0.2)', 'rgba(255, 159, 64, 0.7)']
+                }
                 style={styles.actionGradient}
               />
               <View style={styles.actionOverlay}>
-                <Text style={styles.actionTitle}>GET MEAL & EXERCISE PLAN</Text>
-                <Text style={styles.actionSubtitle}>Complete wellness</Text>
+                <Text style={styles.actionTitle}>
+                  {hasExercisePlan ? 'YOUR EXERCISE PLAN' : 'GET EXERCISE PLAN'}
+                </Text>
+                <Text style={styles.actionSubtitle}>
+                  {hasExercisePlan
+                    ? `${exercisePlanCount} active plan${exercisePlanCount > 1 ? 's' : ''}`
+                    : 'Fitness & wellness'}
+                </Text>
+                {hasExercisePlan && (
+                  <View style={styles.activePlanIndicator}>
+                    <View style={styles.activeDot} />
+                    <Text style={styles.activeText}>Active</Text>
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
           </View>

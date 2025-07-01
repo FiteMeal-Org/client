@@ -73,22 +73,7 @@ export default function ProfileFormScreen({
       console.log('📄 Profile response:', response.data);
       const profile = response.data.data || response.data;
 
-      // Jika edit mode, jangan check completeness
-      if (!isEditMode && profile.height && profile.weight && profile.activityLevel) {
-        Alert.alert(
-          'Profil Sudah Lengkap',
-          'Profil Anda sudah lengkap. Anda akan diarahkan kembali.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.goBack(),
-            },
-          ]
-        );
-        return;
-      }
-
-      // Pre-fill form with existing data
+      // Pre-fill form with existing data (removed completeness check)
       if (profile.height) setHeight(profile.height.toString());
       if (profile.weight) setWeight(profile.weight.toString());
       if (profile.activityLevel) setActivityLevel(profile.activityLevel);
@@ -313,9 +298,9 @@ export default function ProfileFormScreen({
                       dropdownIconColor="#8B4A6B">
                       <Picker.Item label="Pilih tingkat aktivitas" value="" />
                       <Picker.Item label="Inactive (Tidak Aktif)" value="inactive" />
-                      <Picker.Item label="Somewhat Active (Agak Aktif)" value="somewhat_active" />
+                      <Picker.Item label="Somewhat Active (Agak Aktif)" value="somewhat active" />
                       <Picker.Item label="Active (Aktif)" value="active" />
-                      <Picker.Item label="Very Active (Sangat Aktif)" value="very_active" />
+                      <Picker.Item label="Very Active (Sangat Aktif)" value="very active" />
                     </Picker>
                   </View>
                 </View>

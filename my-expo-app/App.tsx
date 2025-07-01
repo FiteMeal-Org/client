@@ -16,6 +16,7 @@ import AddExerciseScreen from './screens/AddExerciseScreen';
 import ProfileFormScreen from './screens/ProfileFormScreen';
 import MealExercisePlanScreen from './screens/MealExercisePlanScreen';
 import AddCompletePlan from './screens/AddCompletePlan';
+import AccountScreen from 'screens/AccountScreen';
 
 type IAuthContext = {
   token: string | null;
@@ -61,6 +62,7 @@ export default function App() {
               <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
               <Stack.Screen name="MealExercisePlan" component={MealExercisePlanScreen} />
               <Stack.Screen name="AddCompletePlan" component={AddCompletePlan} />
+              <Stack.Screen name="AccountScreen" component={AccountScreen} />
             </>
           ) : (
             <>
