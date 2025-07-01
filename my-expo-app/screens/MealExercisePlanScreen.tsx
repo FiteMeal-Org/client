@@ -8,7 +8,6 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
-  Dimensions,
   TextInput,
   SafeAreaView,
 } from 'react-native';
@@ -17,7 +16,6 @@ import * as SecureStore from 'expo-secure-store';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BASE_URL = 'https://api-fitemeal.vercel.app';
 
 // Interface untuk exercise data
@@ -104,11 +102,13 @@ export default function MealExercisePlanScreen() {
           throw new Error('No access token found');
         }
 
+        // Update body structure sesuai dengan contoh API Postman
         const body = {
-          day,
-          type,
-          isDone,
-          notes,
+          day: day,
+          planType: "meal", // Specify this is a meal plan update
+          type: type, // breakfast, lunch, dinner
+          isDone: isDone,
+          notes: notes || `Sudah selesai makan ${type}, rasanya enak!`
         };
 
         console.log('Sending meal update request to:', `${BASE_URL}/api/add-meal-exercise/${planId}`);
@@ -190,17 +190,20 @@ export default function MealExercisePlanScreen() {
           throw new Error('No access token found');
         }
 
+        // Update body structure sesuai dengan contoh API Postman untuk exercise
         const body = {
-          day,
-          exerciseIndex,
-          isDone,
-          notes,
+          day: day,
+          planType: "exercise", // Specify this is an exercise plan update
+          exerciseIndex: exerciseIndex,
+          isDone: isDone,
+          notes: notes || "Sudah selesai makan pagi, rasanya enak!"
         };
 
-        console.log('Sending exercise update request to:', `${BASE_URL}/api/add-meal-exercise/${planId}/exercise`);
+        console.log('Sending exercise update request to:', `${BASE_URL}/api/add-meal-exercise/${planId}`);
         console.log('Request body:', body);
 
-        const response = await fetch(`${BASE_URL}/api/add-meal-exercise/${planId}/exercise`, {
+        // Use same endpoint as meal, but with planType: "exercise"
+        const response = await fetch(`${BASE_URL}/api/add-meal-exercise/${planId}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',

@@ -94,7 +94,7 @@ export default function PlanSelectionScreen({ navigation }: PlanSelectionScreenP
   const handleMealPlanPress = () => {
     validateAndNavigate(() => {
       // Navigate to the stack screen from tab navigator
-      navigation.getParent()?.navigate('AddCompletePlan');
+      navigation.getParent()?.navigate('AddPlan');
     });
   };
 
@@ -116,10 +116,6 @@ export default function PlanSelectionScreen({ navigation }: PlanSelectionScreenP
     });
   };
 
-  const handleGoBack = () => {
-    navigation.goBack();
-  };
-
   return (
     <ImageBackground
       source={{
@@ -132,11 +128,7 @@ export default function PlanSelectionScreen({ navigation }: PlanSelectionScreenP
       <SafeAreaView style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
           <Text style={styles.headerTitle}>Choose Your Plan</Text>
-          <View style={styles.placeholder} />
         </View>
 
         {/* Content */}
@@ -266,18 +258,11 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 10,
   },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: 'white',
-  },
-  placeholder: {
-    width: 40,
+    textAlign: 'center',
   },
   content: {
     flex: 1,

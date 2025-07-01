@@ -16,6 +16,8 @@ import {
   checkUserMealPlan,
   calculateTodayIntake,
   checkUserExercisePlan,
+  checkUserMealExercisePlan,
+  calculateMealExerciseTodayIntake,
 } from '../services/mealPlanService';
 import { getUserProfile } from '../services/profileService'; // Import profile service
 import {
@@ -39,6 +41,11 @@ export default function HomeScreen() {
   const [hasExercisePlan, setHasExercisePlan] = useState(false);
   const [exercisePlanCount, setExercisePlanCount] = useState(0);
   const [exercisePlanLoading, setExercisePlanLoading] = useState(true);
+
+  // State untuk meal & exercise plan
+  const [hasMealExercisePlan, setHasMealExercisePlan] = useState(false);
+  const [mealExercisePlanCount, setMealExercisePlanCount] = useState(0);
+  const [mealExercisePlanLoading, setMealExercisePlanLoading] = useState(true);
 
   // New states for calorie tracking
   const [intakeCalories, setIntakeCalories] = useState(0);
@@ -157,7 +164,8 @@ export default function HomeScreen() {
       });
 
       // Safely set state dengan fallback values
-      setHasMealPlan(result.hasMealPlan || false);
+      const mealPlanExists = result.hasMealPlan || false;
+      setHasMealPlan(mealPlanExists);
       setMealPlanCount(result.mealPlanCount || 0);
 
       // Extract ongoing plans dengan EXPLICIT checking
@@ -199,21 +207,23 @@ export default function HomeScreen() {
             setTotalMeals(calorieData.totalMeals || 0);
           } else {
             console.log('❌ HomeScreen: Invalid calorie data received');
-            resetCalorieData();
+            // Don't reset here, wait for meal & exercise plan check
           }
         } catch (error) {
           console.error('❌ HomeScreen: Error calculating today intake:', error);
-          resetCalorieData();
+          // Don't reset here, wait for meal & exercise plan check
         }
       } else {
         console.log(
-          '📊 HomeScreen: No ongoing plans found or invalid array, resetting calorie data'
+          '📊 HomeScreen: No ongoing meal plans found, will check meal & exercise plans for calorie data'
         );
         console.log('📊 HomeScreen: ongoingPlans value:', ongoingPlans);
         console.log('📊 HomeScreen: Array.isArray check:', Array.isArray(ongoingPlans));
         console.log('📊 HomeScreen: Length check:', ongoingPlans?.length);
-        resetCalorieData();
+        // Don't reset calorie data here, let meal & exercise plan check handle it
       }
+      
+      return mealPlanExists; // Return meal plan status
     } catch (error) {
       console.error('❌ HomeScreen: Error checking meal plan status:', error);
       if (error instanceof Error) {
@@ -224,6 +234,8 @@ export default function HomeScreen() {
       setHasMealPlan(false);
       setMealPlanCount(0);
       resetCalorieData();
+      
+      return false; // Return meal plan status
     } finally {
       setMealPlanLoading(false);
     }
@@ -259,9 +271,98 @@ export default function HomeScreen() {
     }
   };
 
+  // Check meal & exercise plan status
+  const checkMealExercisePlanStatus = async (mealPlanExists = false) => {
+    try {
+      setMealExercisePlanLoading(true);
+      console.log('🍽️🏋️ HomeScreen: Checking meal & exercise plan status...');
+
+      const result = await checkUserMealExercisePlan();
+      console.log('🍽️🏋️ HomeScreen: Meal & exercise plan result received:', result);
+
+      if (result && typeof result === 'object') {
+        setHasMealExercisePlan(result.hasMealExercisePlan || false);
+        setMealExercisePlanCount(result.mealExercisePlanCount || 0);
+        console.log('🍽️🏋️ HomeScreen: Meal & exercise plan status set:', {
+          hasMealExercisePlan: result.hasMealExercisePlan,
+          mealExercisePlanCount: result.mealExercisePlanCount,
+        });
+
+        // Prioritas logika kalori:
+        // 1. Jika ada meal plan → gunakan kalori dari meal plan  
+        // 2. Jika tidak ada meal plan tapi ada meal & exercise plan → gunakan kalori dari meal & exercise plan
+        // 3. Jika tidak ada keduanya → reset kalori data
+        
+        console.log('🍽️🏋️ HomeScreen: Calorie logic - mealPlanExists:', mealPlanExists);
+        console.log('🍽️🏋️ HomeScreen: Calorie logic - hasMealExercisePlan:', result.hasMealExercisePlan);
+        console.log('🍽️🏋️ HomeScreen: Calorie logic - ongoing plans length:', result.ongoingPlans?.length);
+
+        if (!mealPlanExists && result.hasMealExercisePlan && Array.isArray(result.ongoingPlans) && result.ongoingPlans.length > 0) {
+          console.log('🍽️🏋️ HomeScreen: ✅ Condition met: No meal plan but has meal & exercise plan, calculating calories...');
+          try {
+            const calorieData = calculateMealExerciseTodayIntake(result.ongoingPlans);
+            console.log('🍽️🏋️ HomeScreen: Received calorie data from meal & exercise plan:', calorieData);
+
+            if (calorieData && typeof calorieData === 'object') {
+              console.log('🍽️🏋️ HomeScreen: ✅ Setting calorie data from meal & exercise plan:');
+              console.log('   - intakeCalories:', calorieData.intakeCalories);
+              console.log('   - targetCalories:', calorieData.targetCalories);
+              console.log('   - completedMeals:', calorieData.completedMeals);
+              console.log('   - totalMeals:', calorieData.totalMeals);
+              
+              setIntakeCalories(calorieData.intakeCalories || 0);
+              setTargetCalories(calorieData.targetCalories || 0);
+              setIntakePercentage(calorieData.intakePercentage || 0);
+              setRemainingCalories(calorieData.remainingCalories || 0);
+              setCompletedMeals(calorieData.completedMeals || 0);
+              setTotalMeals(calorieData.totalMeals || 0);
+            } else {
+              console.log('❌ HomeScreen: Invalid calorie data received from meal & exercise plan');
+              resetCalorieData();
+            }
+          } catch (error) {
+            console.error('❌ HomeScreen: Error calculating meal & exercise plan calories:', error);
+            resetCalorieData();
+          }
+        } else if (!mealPlanExists && !result.hasMealExercisePlan) {
+          // If no meal plan and no meal & exercise plan, reset calorie data
+          console.log('🍽️🏋️ HomeScreen: ❌ No meal plan and no meal & exercise plan, resetting calorie data');
+          resetCalorieData();
+        } else if (mealPlanExists) {
+          console.log('🍽️🏋️ HomeScreen: ℹ️ Meal plan exists, keeping meal plan calorie data');
+          // Do nothing, meal plan calories should already be set by checkMealPlanStatus
+        } else {
+          console.log('🍽️🏋️ HomeScreen: ⚠️ Unhandled condition for calorie logic');
+        }
+      } else {
+        console.log('❌ HomeScreen: Invalid meal & exercise plan result');
+        setHasMealExercisePlan(false);
+        setMealExercisePlanCount(0);
+        if (!mealPlanExists) {
+          resetCalorieData();
+        }
+      }
+    } catch (error) {
+      console.error('❌ HomeScreen: Error checking meal & exercise plan status:', error);
+      setHasMealExercisePlan(false);
+      setMealExercisePlanCount(0);
+      if (!mealPlanExists) {
+        resetCalorieData();
+      }
+    } finally {
+      setMealExercisePlanLoading(false);
+    }
+  };
+
   // New function to handle both meal and exercise plan checks
   const handlePlanChecks = async () => {
-    await Promise.all([checkMealPlanStatus(), checkExercisePlanStatus()]);
+    // First check meal plan and get its status
+    const mealPlanResult = await checkMealPlanStatus();
+    // Then check exercise plan
+    await checkExercisePlanStatus();
+    // Finally check meal & exercise plan (pass meal plan status from result)
+    const currentMealPlanStatus = mealPlanResult !== undefined ? mealPlanResult : hasMealPlan;
+    await checkMealExercisePlanStatus(currentMealPlanStatus);
   };
 
   // PENTING: Helper function untuk reset calorie data - HARUS DIATAS checkMealPlanStatus
@@ -303,9 +404,9 @@ export default function HomeScreen() {
       // If user has meal plan, navigate to Plans screen
       (navigation as any).navigate('Plans');
     } else {
-      // If no meal plan, validate profile first then navigate to plan creation
+      // If no meal plan, validate profile first then navigate directly to AddPlan
       validateAndNavigate(() => {
-        (navigation as any).navigate('BerandaNavigator', { screen: 'Add' });
+        (navigation as any).navigate('AddPlan');
       });
     }
   };
@@ -592,15 +693,7 @@ export default function HomeScreen() {
             <Text style={styles.appTitleShadow}>FITEMEAL</Text>
             <Text style={styles.appTitle}>FITEMEAL</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => {
-              // Navigate to Profile tab in the same tab navigator
-              const parent = navigation.getParent();
-              if (parent) {
-                parent.navigate('AccountScreen');
-              }
-            }}
-            style={styles.profileButton}>
+          <View style={styles.profileButton}>
             <Image
               source={
                 profile?.profilePicture
@@ -610,7 +703,7 @@ export default function HomeScreen() {
               style={styles.profileImage}
             />
             <View style={styles.onlineIndicator} />
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* Banner with Swipe Support - DISABLED */}
@@ -872,7 +965,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flex: 1,
-    marginBottom: 80,
+    marginBottom: 0, // Remove excessive margin that causes white space
   },
 
   // Header Styles - Green theme

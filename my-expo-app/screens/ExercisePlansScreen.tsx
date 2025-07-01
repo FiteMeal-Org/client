@@ -331,11 +331,7 @@ export default function ExercisePlansScreen() {
 
         <Text style={styles.headerTitle}>Exercise Plans</Text>
 
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('AddExercise')}>
-          <Text style={styles.addIcon}>+</Text>
-        </TouchableOpacity>
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -525,6 +521,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF9800',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerSpacer: {
+    width: 40,
+    height: 40,
   },
   addIcon: {
     fontSize: 20,

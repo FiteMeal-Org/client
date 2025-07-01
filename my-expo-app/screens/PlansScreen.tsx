@@ -750,11 +750,7 @@ export default function PlansScreen() {
 
         <Text style={styles.headerTitle}>Meal Plans</Text>
 
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('AddCompletePlan' as never)}>
-          <Text style={styles.addIcon}>+</Text>
-        </TouchableOpacity>
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -1291,6 +1287,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#8B5A8C',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerSpacer: {
+    width: 40,
+    height: 40,
   },
   addIcon: {
     fontSize: 20,
