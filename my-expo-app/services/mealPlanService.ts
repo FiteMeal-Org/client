@@ -289,3 +289,214 @@ export const updateMealStatus = async (
     throw error;
   }
 };
+
+// Check user meal & exercise plans
+export const checkUserMealExercisePlan = async () => {
+  console.log('🔍 START: checkUserMealExercisePlan function called');
+  
+  try {
+    const token = await SecureStore.getItemAsync('access_token');
+
+    if (!token) {
+      console.log('❌ No access token found');
+      throw new Error('No access token found');
+    }
+
+    console.log('✅ Token found, making API call to meal-exercise endpoint...');
+    const response = await fetch(`${BASE_URL}/api/add-meal-exercise`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    console.log('📡 Meal-Exercise API Response status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log('❌ API Error response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('📄 Meal-Exercise API Response data:', result);
+
+    // Validate response structure
+    if (!result || typeof result !== 'object') {
+      console.log('❌ Invalid response format:', result);
+      throw new Error('Invalid response format');
+    }
+
+    // Extract data
+    const data = result.data || {};
+    let plansData = [];
+    
+    if (Array.isArray(data)) {
+      plansData = data;
+    } else {
+      // Handle structure with ongoing and upcoming arrays
+      const ongoing = data.ongoing || [];
+      const upcoming = data.upcoming || [];
+      plansData = [...ongoing, ...upcoming];
+    }
+
+    console.log('📊 Processed meal-exercise plans data:', plansData);
+
+    // Filter ongoing plans (same logic as meal plans)
+    const ongoingPlans = plansData.filter((plan: any) => {
+      if (!plan?.startDate) return false;
+      
+      const startDate = new Date(plan.startDate);
+      const today = new Date();
+      const diffTime = today.getTime() - startDate.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      return diffDays >= 1 && diffDays <= (plan.duration || 7);
+    });
+
+    console.log('📊 Ongoing meal-exercise plans:', ongoingPlans);
+
+    return {
+      hasMealExercisePlan: plansData.length > 0,
+      mealExercisePlanCount: plansData.length,
+      ongoingPlans: ongoingPlans,
+      upcomingPlans: plansData.filter((plan: any) => {
+        if (!plan?.startDate) return false;
+        const startDate = new Date(plan.startDate);
+        const today = new Date();
+        return startDate > today;
+      }),
+      allPlans: plansData
+    };
+
+  } catch (error) {
+    console.error('❌ Error in checkUserMealExercisePlan:', error);
+    return {
+      hasMealExercisePlan: false,
+      mealExercisePlanCount: 0,
+      ongoingPlans: [],
+      upcomingPlans: [],
+      allPlans: []
+    };
+  }
+};
+
+// Calculate today's intake from meal & exercise plans
+export const calculateMealExerciseTodayIntake = (ongoingPlans: any[]) => {
+  console.log('🔍 START: calculateMealExerciseTodayIntake with plans:', ongoingPlans);
+
+  if (!Array.isArray(ongoingPlans) || ongoingPlans.length === 0) {
+    console.log('❌ No ongoing meal-exercise plans provided');
+    return {
+      intakeCalories: 0,
+      targetCalories: 0,
+      intakePercentage: 0,
+      remainingCalories: 0,
+      completedMeals: 0,
+      totalMeals: 0,
+    };
+  }
+
+  // Get today's date
+  const today = new Date();
+  const todayDateStr = today.toISOString().split('T')[0];
+  console.log('📅 Today date string:', todayDateStr);
+
+  let totalIntakeCalories = 0;
+  let totalTargetCalories = 0;
+  let totalCompletedMeals = 0;
+  let totalMeals = 0;
+
+  ongoingPlans.forEach((plan, planIndex) => {
+    console.log(`📋 Processing meal-exercise plan ${planIndex + 1}:`, plan.name || 'Unnamed plan');
+
+    if (!plan.todoList || !Array.isArray(plan.todoList)) {
+      console.log(`❌ Plan ${planIndex + 1} has no valid todoList`);
+      return;
+    }
+
+    // Find today's data - try both date formats
+    const todayData = plan.todoList.find((dayData: any) => {
+      try {
+        // Try different date formats
+        let dayDateStr = '';
+        if (dayData.date) {
+          const dayDate = new Date(dayData.date);
+          dayDateStr = dayDate.toISOString().split('T')[0];
+        } else if (dayData.day) {
+          // If day is a number, calculate from start date
+          if (typeof dayData.day === 'number' && plan.startDate) {
+            const startDate = new Date(plan.startDate);
+            const targetDate = new Date(startDate);
+            targetDate.setDate(startDate.getDate() + dayData.day - 1);
+            dayDateStr = targetDate.toISOString().split('T')[0];
+          } else {
+            const dayDate = new Date(dayData.day);
+            dayDateStr = dayDate.toISOString().split('T')[0];
+          }
+        }
+        
+        console.log(`📅 Comparing: ${dayDateStr} === ${todayDateStr}`);
+        return dayDateStr === todayDateStr;
+      } catch (error) {
+        console.log(`❌ Error parsing date for day data:`, error);
+        return false;
+      }
+    });
+
+    if (!todayData) {
+      console.log(`❌ No data found for today in plan ${planIndex + 1}`);
+      console.log(`📋 Available days in plan:`, plan.todoList.map((d: any) => ({
+        day: d.day,
+        date: d.date
+      })));
+      return;
+    }
+
+    console.log(`📊 Today's data for plan ${planIndex + 1}:`, todayData);
+
+    // Calculate meal calories - check for different meal types
+    const mealTypes = ['breakfast', 'lunch', 'dinner', 'snacks'];
+    mealTypes.forEach((mealType) => {
+      const meal = todayData[mealType];
+      if (meal && typeof meal === 'object') {
+        totalMeals++;
+        const calories = meal.calories || 0;
+        totalTargetCalories += calories;
+
+        if (meal.isDone) {
+          totalCompletedMeals++;
+          totalIntakeCalories += calories;
+        }
+
+        console.log(`📊 ${mealType}: ${calories} cal, completed: ${meal.isDone}`);
+      }
+    });
+
+    // Add daily calories if available (this might be the total daily target)
+    if (todayData.dailyCalories && typeof todayData.dailyCalories === 'number') {
+      // Don't add to totalTargetCalories if we already counted individual meals
+      // Instead, use this as the main target if no individual meal calories
+      if (totalTargetCalories === 0) {
+        totalTargetCalories = todayData.dailyCalories;
+      }
+      console.log('📊 Daily calories from plan:', todayData.dailyCalories);
+    }
+  });
+
+  const intakePercentage = totalTargetCalories > 0 ? (totalIntakeCalories / totalTargetCalories) * 100 : 0;
+  const remainingCalories = totalTargetCalories - totalIntakeCalories;
+
+  const result = {
+    intakeCalories: totalIntakeCalories,
+    targetCalories: totalTargetCalories,
+    intakePercentage: Math.round(intakePercentage),
+    remainingCalories: Math.max(0, remainingCalories),
+    completedMeals: totalCompletedMeals,
+    totalMeals: totalMeals,
+  };
+
+  console.log('📊 Final meal-exercise calorie calculation:', result);
+  return result;
+};

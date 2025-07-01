@@ -47,7 +47,7 @@ export default function AccountScreen() {
 
   // Function untuk redirect ke ProfileFormScreen
   const handleEditProfile = () => {
-    navigation.navigate('ProfileForm' as never); // Redirect ke ProfileFormScreen
+    (navigation as any).navigate('ProfileForm', { editMode: true }); // Redirect ke ProfileFormScreen dengan editMode
   };
 
   const handleLogout = async () => {

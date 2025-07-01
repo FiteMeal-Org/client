@@ -25,18 +25,6 @@ import {
   showProfileErrorAlert,
 } from '../services/profileValidationService';
 
-interface UserProfile {
-  id: string;
-  username: string;
-  email: string;
-  age?: number;
-  height?: number;
-  weight?: number;
-  goals?: string;
-  activity_level?: string;
-  gender?: string;
-}
-
 type AddExerciseScreenNavigationProp = StackNavigationProp<any, 'AddExercise'>;
 
 export default function AddExerciseScreen({
@@ -52,10 +40,9 @@ export default function AddExerciseScreen({
   const [goals, setGoals] = useState('');
   const [duration, setDuration] = useState('');
 
-  // Loading and profile state
+  // Loading state
   const [loading, setLoading] = useState(false);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [profileLoading,setProfileLoading] = useState(true);
   const [userId, setUserId] = useState('');
 
   const loadUserProfile = useCallback(async () => {
@@ -66,22 +53,9 @@ export default function AddExerciseScreen({
 
       console.log('📱 Stored User ID:', storedUserId);
       console.log('🔑 Token exists:', !!token);
-      console.log('🔑 Token length:', token?.length);
 
       if (!storedUserId) {
         console.warn('⚠️ No user ID found in SecureStore');
-        // Instead of showing error, create a default profile for demo
-        setUserProfile({
-          id: 'demo-user',
-          username: 'Demo User',
-          email: 'demo@example.com',
-          age: 25,
-          height: 170,
-          weight: 70,
-          goals: 'weight_loss',
-          activity_level: 'moderate',
-          gender: 'male',
-        });
         setUserId('demo-user');
         setProfileLoading(false);
         return;
@@ -89,78 +63,19 @@ export default function AddExerciseScreen({
 
       if (!token) {
         console.warn('⚠️ No authentication token found');
-        // Use demo profile if no token
-        setUserProfile({
-          id: storedUserId,
-          username: 'Demo User',
-          email: 'demo@example.com',
-          age: 25,
-          height: 170,
-          weight: 70,
-          goals: 'weight_loss',
-          activity_level: 'moderate',
-          gender: 'male',
-        });
         setUserId(storedUserId);
         setProfileLoading(false);
         return;
       }
 
       setUserId(storedUserId);
-
-      console.log('🔗 API URL:', getApiUrl(API_CONFIG.ENDPOINTS.PROFILE_BY_ID(storedUserId)));
-      console.log('🔑 Making API request with token...');
-
-      const response = await axios.get(
-        getApiUrl(API_CONFIG.ENDPOINTS.PROFILE_BY_ID(storedUserId)),
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      console.log('📊 API Response:', response.data);
-
-      if (response.data && response.data.data) {
-        setUserProfile(response.data.data);
-      } else {
-        // Fallback to demo profile if API returns no data
-        console.warn('⚠️ No profile data from API, using demo profile');
-        setUserProfile({
-          id: storedUserId,
-          username: 'User',
-          email: 'user@example.com',
-          age: 25,
-          height: 170,
-          weight: 70,
-          goals: 'weight_loss',
-          activity_level: 'moderate',
-          gender: 'male',
-        });
-      }
+      setProfileLoading(false);
     } catch (error: any) {
       console.error('❌ Error loading user profile:', error);
-      console.error('❌ Error details:', error.response?.data || error.message);
-
-      // Instead of showing error alert, provide fallback
-      console.log('🔄 Using fallback demo profile');
-      setUserProfile({
-        id: userId || 'demo-user',
-        username: 'Demo User',
-        email: 'demo@example.com',
-        age: 25,
-        height: 170,
-        weight: 70,
-        goals: 'weight_loss',
-        activity_level: 'moderate',
-        gender: 'male',
-      });
-    } finally {
+      setUserId('demo-user');
       setProfileLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     const initProfile = async () => {
@@ -290,8 +205,34 @@ export default function AddExerciseScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={{ flex: 1 }}>
-        {/* Hero Image dengan Header */}
+      {/* Header dengan tombol back - Fixed header seperti AddPlanScreen */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={() => {
+            // Navigate back to PlanSelectionScreen
+            const parent = navigation.getParent();
+            if (parent) {
+              parent.navigate('BerandaNavigator', { screen: 'PlanSelection' });
+            } else {
+              navigation.goBack();
+            }
+          }} 
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#8B0000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Create Exercise Plan</Text>
+        <View style={styles.headerRight} />
+      </View>
+
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+      >
+        {/* Hero Image Section - Sekarang di dalam scroll */}
         <View style={styles.imageHeaderContainer}>
           <ImageBackground
             source={{
@@ -311,15 +252,6 @@ export default function AddExerciseScreen({
               style={styles.imageGradient}
             />
 
-            {/* Header Navigation */}
-            <View style={styles.headerOverlay}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>Create Exercise Plan</Text>
-              <View style={styles.placeholder} />
-            </View>
-
             {/* Hero Content */}
             <View style={styles.headerContent}>
               <Text style={styles.title}>Build Your Workout Plan</Text>
@@ -328,40 +260,9 @@ export default function AddExerciseScreen({
               </Text>
             </View>
           </ImageBackground>
-        </View>
-
-        {/* Form Section */}
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.form}>
-            {/* User Profile Display */}
-            {userProfile && (
-              <View style={styles.userInfoCard}>
-                <Text style={styles.inputLabel}>Your Profile Information</Text>
-                <View style={styles.userInfoGrid}>
-                  <View style={styles.userInfoItem}>
-                    <Text style={styles.userInfoLabel}>Age</Text>
-                    <Text style={styles.userInfoValue}>{userProfile.age || 'Not set'}</Text>
-                  </View>
-                  <View style={styles.userInfoItem}>
-                    <Text style={styles.userInfoLabel}>Weight</Text>
-                    <Text style={styles.userInfoValue}>{userProfile.weight || 'Not set'} kg</Text>
-                  </View>
-                  <View style={styles.userInfoItem}>
-                    <Text style={styles.userInfoLabel}>Height</Text>
-                    <Text style={styles.userInfoValue}>{userProfile.height || 'Not set'} cm</Text>
-                  </View>
-                  <View style={styles.userInfoItem}>
-                    <Text style={styles.userInfoLabel}>Gender</Text>
-                    <Text style={styles.userInfoValue}>{userProfile.gender || 'Not set'}</Text>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* Plan Name */}
-            <Text style={styles.inputLabel}>Exercise Plan Name</Text>
+        </View>        <View style={styles.form}>
+          {/* Plan Name */}
+          <Text style={[styles.inputLabel, styles.firstInputLabel]}>Exercise Plan Name</Text>
             <TextInput
               style={styles.input}
               placeholder="e.g., My Strength Building Journey"
@@ -475,7 +376,6 @@ export default function AddExerciseScreen({
             </View>
           </View>
         </ScrollView>
-      </View>
     </SafeAreaView>
   );
 }
@@ -485,10 +385,50 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
+  // Header styles seperti AddPlanScreen
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#8B0000',
+  },
+  headerRight: {
+    width: 40,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 100, // Increase padding for better scroll experience
+  },
   imageHeaderContainer: {
-    height: 300,
+    height: 250, // Reduced from 300 since it's now in scroll
     width: '100%',
     overflow: 'hidden',
+    marginBottom: 0, // Remove gap
   },
   imageHeader: {
     flex: 1,
@@ -498,28 +438,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     height: '100%',
     width: '100%',
-  },
-  headerOverlay: {
-    position: 'absolute',
-    top: 60,
-    left: 24,
-    right: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 16,
   },
   headerActions: {
     flexDirection: 'row',
@@ -577,21 +495,23 @@ const styles = StyleSheet.create({
   },
   form: {
     paddingHorizontal: 24,
-    paddingTop: 0,
+    paddingTop: 20,
     paddingBottom: 40,
     backgroundColor: '#F8F9FA',
-    marginTop: -20,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 30,
+    marginTop: -20, // Overlap with image to create seamless connection
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    minHeight: '100%',
   },
   inputLabel: {
     fontSize: 16,
     color: '#8B0000',
     marginBottom: 12,
     fontWeight: '600',
-    marginTop: 24,
+    marginTop: 16, // Reduced from 24 since no profile section
+  },
+  firstInputLabel: {
+    marginTop: 0, // No top margin for first input
   },
   input: {
     backgroundColor: '#FFFFFF',
@@ -760,44 +680,5 @@ const styles = StyleSheet.create({
     color: '#8B0000',
     marginTop: 10,
     fontSize: 16,
-  },
-  placeholder: {
-    width: 40,
-  },
-  userInfoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  userInfoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  userInfoItem: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: '#F8F9FA',
-    padding: 12,
-    borderRadius: 8,
-  },
-  userInfoLabel: {
-    fontSize: 12,
-    color: '#6C757D',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  userInfoValue: {
-    fontSize: 14,
-    color: '#2C3E50',
-    fontWeight: '600',
   },
 });

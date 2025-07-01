@@ -61,7 +61,7 @@ export default function BerandaNavigator() {
         name="Add"
         component={PlanSelectionScreen}
         options={{
-          tabBarLabel: 'Add',
+          tabBarLabel: '',
           tabBarIcon: ({ focused, color, size }) => (
             <View
               style={{

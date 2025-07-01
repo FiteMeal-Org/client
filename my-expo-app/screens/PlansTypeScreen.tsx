@@ -51,15 +51,7 @@ export default function PlansTypeScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Home' as never)}
-          style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-
         <Text style={styles.headerTitle}>Choose Your Plan</Text>
-
-        <View style={styles.placeholder} />
       </View>
 
       <ScrollView
@@ -96,7 +88,7 @@ export default function PlansTypeScreen() {
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>💡 Tips</Text>
           <Text style={styles.infoText}>
-            • Start with meal plans if you're focusing on nutrition
+            • Start with meal plans if you&apos;re focusing on nutrition
           </Text>
           <Text style={styles.infoText}>• Choose exercise plans for fitness goals</Text>
           <Text style={styles.infoText}>• Combine both for complete wellness transformation</Text>
@@ -116,31 +108,18 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: 24,
-    color: '#333333',
-    fontWeight: '300',
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#1E293B',
-  },
-  placeholder: {
-    width: 40,
+    textAlign: 'center',
   },
 
   // Content
