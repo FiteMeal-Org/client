@@ -1,168 +1,656 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  RefreshControl,
+  ActivityIndicator,
+  Dimensions,
+  TextInput,
+  SafeAreaView,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import * as SecureStore from 'expo-secure-store';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 
-type MealExercisePlanScreenProps = {
-  navigation: any;
-};
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const BASE_URL = 'https://api-fitemeal.vercel.app';
 
-export default function MealExercisePlanScreen({ navigation }: MealExercisePlanScreenProps) {
-  const [progressPercentage] = useState(100);
-  const [completedMeals] = useState(3);
-  const [totalMeals] = useState(3);
+// Interface untuk exercise data
+interface ExerciseData {
+  name: string;
+  sets: number;
+  reps: string;
+  targetMuscle: string;
+  equipment: string;
+  isDone: boolean;
+}
 
-  const handleGoBack = () => {
-    navigation.goBack();
+// Interface untuk workout data
+interface WorkoutData {
+  exerciseName: string;
+  totalSession: string;
+  exercises: ExerciseData[];
+  caloriesBurned: number;
+  notes: string;
+}
+
+// Interface untuk meal data
+interface MealData {
+  name: string;
+  imageUrl: string;
+  calories: number;
+  ingredients: string[];
+  recipes: string[];
+  isDone: boolean;
+  notes: string;
+}
+
+// Interface untuk day data
+interface DayData {
+  day: number;
+  date: string;
+  dailyCalories: number;
+  breakfast: MealData;
+  lunch: MealData;
+  dinner: MealData;
+  exercise: WorkoutData;
+}
+
+// Interface untuk plan data
+interface PlanData {
+  _id: string;
+  name: string;
+  userId: string;
+  startDate: string;
+  endDate: string;
+  dailyCalories: number;
+  duration: number;
+  goal: string;
+  todoList: DayData[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export default function MealExercisePlanScreen() {
+  const navigation = useNavigation();
+  const [plans, setPlans] = useState<PlanData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number>(1);
+  const [updatingMeal, setUpdatingMeal] = useState<string | null>(null);
+  const [updatingExercise, setUpdatingExercise] = useState<string | null>(null);
+  const [mealNotes, setMealNotes] = useState<{ [key: string]: string }>({});
+  const [exerciseNotes, setExerciseNotes] = useState<{ [key: string]: string }>({});
+
+  useEffect(() => {
+    fetchMealExercisePlans();
+  }, []);
+
+  // Update meal completion status
+  const updateMealStatus = useCallback(
+    async (planId: string, day: number, type: string, isDone: boolean, notes: string) => {
+      try {
+        setUpdatingMeal(`${day}-${type}`);
+
+        const token = await SecureStore.getItemAsync('access_token');
+        if (!token) {
+          Alert.alert('Error', 'No access token found');
+          throw new Error('No access token found');
+        }
+
+        const body = {
+          day,
+          type,
+          isDone,
+          notes,
+        };
+
+        console.log('Sending meal update request to:', `${BASE_URL}/api/add-meal-exercise/${planId}`);
+        console.log('Request body:', body);
+
+        const response = await fetch(`${BASE_URL}/api/add-meal-exercise/${planId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ API Error:', errorText);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Meal update successful:', result);
+
+        // Update local state
+        setPlans((prevPlans) =>
+          prevPlans.map((plan) => {
+            if (plan._id === planId) {
+              return {
+                ...plan,
+                todoList: plan.todoList.map((dayData) => {
+                  if (dayData.day === day) {
+                    return {
+                      ...dayData,
+                      [type]: {
+                        ...dayData[type as keyof Omit<DayData, 'date' | 'day' | 'dailyCalories' | 'exercise'>],
+                        isDone,
+                        notes,
+                      },
+                    };
+                  }
+                  return dayData;
+                }),
+              };
+            }
+            return plan;
+          })
+        );
+
+        // Clear notes input after successful update
+        const noteKey = `${selectedPlan}-${day}-${type}`;
+        setMealNotes((prev) => ({
+          ...prev,
+          [noteKey]: '',
+        }));
+
+        Alert.alert(
+          'Success',
+          `${type.charAt(0).toUpperCase() + type.slice(1)} marked as ${isDone ? 'completed' : 'incomplete'}!`
+        );
+      } catch (error) {
+        console.error('❌ Error updating meal status:', error);
+        Alert.alert('Error', 'Failed to update meal status. Please try again.');
+      } finally {
+        setUpdatingMeal(null);
+      }
+    },
+    [selectedPlan]
+  );
+
+  // Update exercise completion status
+  const updateExerciseStatus = useCallback(
+    async (planId: string, day: number, exerciseIndex: number, isDone: boolean, notes: string) => {
+      try {
+        setUpdatingExercise(`${day}-${exerciseIndex}`);
+
+        const token = await SecureStore.getItemAsync('access_token');
+        if (!token) {
+          Alert.alert('Error', 'No access token found');
+          throw new Error('No access token found');
+        }
+
+        const body = {
+          day,
+          exerciseIndex,
+          isDone,
+          notes,
+        };
+
+        console.log('Sending exercise update request to:', `${BASE_URL}/api/add-meal-exercise/${planId}/exercise`);
+        console.log('Request body:', body);
+
+        const response = await fetch(`${BASE_URL}/api/add-meal-exercise/${planId}/exercise`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ API Error:', errorText);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Exercise update successful:', result);
+
+        // Update local state
+        setPlans((prevPlans) =>
+          prevPlans.map((plan) => {
+            if (plan._id === planId) {
+              return {
+                ...plan,
+                todoList: plan.todoList.map((dayData) => {
+                  if (dayData.day === day) {
+                    const updatedExercises = [...dayData.exercise.exercises];
+                    updatedExercises[exerciseIndex] = {
+                      ...updatedExercises[exerciseIndex],
+                      isDone,
+                    };
+                    return {
+                      ...dayData,
+                      exercise: {
+                        ...dayData.exercise,
+                        exercises: updatedExercises,
+                        notes,
+                      },
+                    };
+                  }
+                  return dayData;
+                }),
+              };
+            }
+            return plan;
+          })
+        );
+
+        // Clear notes input after successful update
+        const noteKey = `${selectedPlan}-${day}-exercise`;
+        setExerciseNotes((prev) => ({
+          ...prev,
+          [noteKey]: '',
+        }));
+
+        Alert.alert(
+          'Success',
+          `Exercise marked as ${isDone ? 'completed' : 'incomplete'}!`
+        );
+      } catch (error) {
+        console.error('❌ Error updating exercise status:', error);
+        Alert.alert('Error', 'Failed to update exercise status. Please try again.');
+      } finally {
+        setUpdatingExercise(null);
+      }
+    },
+    [selectedPlan]
+  );
+
+  // Fetch meal & exercise plans
+  const fetchMealExercisePlans = useCallback(async () => {
+    try {
+      const token = await SecureStore.getItemAsync('access_token');
+
+      if (!token) {
+        Alert.alert('Error', 'No access token found');
+        return;
+      }
+
+      const response = await fetch(`${BASE_URL}/api/add-meal-exercise`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('📄 Meal & Exercise Plans API Response:', JSON.stringify(result, null, 2));
+
+      // Merge ongoing and upcoming plans
+      let plansData: PlanData[] = [];
+      if (result.data) {
+        if (Array.isArray(result.data)) {
+          plansData = result.data;
+        } else {
+          // Handle structure with ongoing and upcoming arrays
+          const ongoing = result.data.ongoing || [];
+          const upcoming = result.data.upcoming || [];
+          plansData = [...ongoing, ...upcoming];
+        }
+      }
+      setPlans(plansData);
+
+      // Auto-select first plan if available
+      if (!selectedPlan && plansData.length > 0) {
+        setSelectedPlan(plansData[0]._id);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching meal & exercise plans:', error);
+      Alert.alert('Error', 'Failed to fetch meal & exercise plans');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [selectedPlan]);
+
+  // Handle refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchMealExercisePlans();
+  }, [fetchMealExercisePlans]);
+
+  // Get current plan
+  const currentPlan = plans.find((plan) => plan._id === selectedPlan);
+
+  // Get current day data
+  const currentDay = currentPlan?.todoList.find((day) => day.day === selectedDay);
+
+  // Handle meal toggle
+  const handleMealToggle = async (mealType: string) => {
+    if (!selectedPlan || !currentDay) return;
+
+    const meal = currentDay[
+      mealType as keyof Omit<DayData, 'date' | 'day' | 'dailyCalories' | 'exercise'>
+    ] as MealData;
+    const noteKey = `${selectedPlan}-${selectedDay}-${mealType}`;
+    const notes = mealNotes[noteKey] || meal.notes || '';
+
+    await updateMealStatus(selectedPlan, selectedDay, mealType, !meal.isDone, notes);
   };
 
-  const handleCreateMealPlan = () => {
-    // Navigate to BerandaNavigator with the Add tab selected
-    navigation.navigate('BerandaNavigator', {
-      screen: 'Add',
-    });
+  // Handle exercise toggle
+  const handleExerciseToggle = async (exerciseIndex: number) => {
+    if (!selectedPlan || !currentDay) return;
+
+    const exercise = currentDay.exercise.exercises[exerciseIndex];
+    const noteKey = `${selectedPlan}-${selectedDay}-exercise`;
+    const notes = exerciseNotes[noteKey] || currentDay.exercise.notes || '';
+
+    await updateExerciseStatus(selectedPlan, selectedDay, exerciseIndex, !exercise.isDone, notes);
   };
 
-  const handleCreateExercisePlan = () => {
-    navigation.navigate('AddExercise');
+  // Get meal notes
+  const getMealNotes = (mealType: string) => {
+    const noteKey = `${selectedPlan}-${selectedDay}-${mealType}`;
+    return (
+      mealNotes[noteKey] ||
+      currentDay?.[mealType as keyof Omit<DayData, 'date' | 'day' | 'dailyCalories' | 'exercise'>]?.notes ||
+      ''
+    );
   };
+
+  // Set meal notes
+  const setMealNotesForType = (mealType: string, notes: string) => {
+    const noteKey = `${selectedPlan}-${selectedDay}-${mealType}`;
+    setMealNotes((prev) => ({
+      ...prev,
+      [noteKey]: notes,
+    }));
+  };
+
+  // Get exercise notes
+  const getExerciseNotes = () => {
+    const noteKey = `${selectedPlan}-${selectedDay}-exercise`;
+    return exerciseNotes[noteKey] || currentDay?.exercise?.notes || '';
+  };
+
+  // Set exercise notes
+  const setExerciseNotesForDay = (notes: string) => {
+    const noteKey = `${selectedPlan}-${selectedDay}-exercise`;
+    setExerciseNotes((prev) => ({
+      ...prev,
+      [noteKey]: notes,
+    }));
+  };
+
+  // Render meal card
+  const renderMealCard = (meal: MealData, mealType: string) => {
+    const isUpdating = updatingMeal === `${selectedDay}-${mealType}`;
+    const noteValue = getMealNotes(mealType);
+
+    return (
+      <View style={styles.mealCard} key={mealType}>
+        <View style={styles.mealHeader}>
+          <View style={styles.mealTitleRow}>
+            <Text style={styles.mealIcon}>
+              {mealType === 'breakfast' ? '☀️' : mealType === 'lunch' ? '🌞' : '🌙'}
+            </Text>
+            <Text style={styles.mealType}>
+              {mealType.charAt(0).toUpperCase() + mealType.slice(1)}
+            </Text>
+          </View>
+          <Text style={styles.caloriesText}>{meal.calories} cal</Text>
+        </View>
+
+        <Text style={styles.mealName}>{meal.name}</Text>
+
+        <Text style={styles.sectionTitle}>Ingredients:</Text>
+        <View style={styles.ingredientsList}>
+          {meal.ingredients && meal.ingredients.length > 0 ? (
+            meal.ingredients.map((ingredient, index) => (
+              <Text key={index} style={styles.ingredientItem}>
+                • {ingredient}
+              </Text>
+            ))
+          ) : (
+            <Text style={styles.ingredientItem}>• No ingredients available</Text>
+          )}
+        </View>
+
+        <Text style={styles.sectionTitle}>Recipe:</Text>
+        <View style={styles.recipeList}>
+          {meal.recipes && meal.recipes.length > 0 ? (
+            meal.recipes.map((step, index) => (
+              <Text key={index} style={styles.recipeStep}>
+                {index + 1}. {step}
+              </Text>
+            ))
+          ) : (
+            <Text style={styles.recipeStep}>• No recipe available</Text>
+          )}
+        </View>
+
+        <Text style={styles.sectionTitle}>Notes:</Text>
+        <TextInput
+          style={styles.notesInput}
+          placeholder="Add your notes here..."
+          placeholderTextColor="#999"
+          value={noteValue}
+          onChangeText={(text) => setMealNotesForType(mealType, text)}
+          multiline
+          numberOfLines={3}
+          textAlignVertical="top"
+        />
+
+        <TouchableOpacity
+          style={[
+            styles.statusButton,
+            meal.isDone && styles.statusButtonCompleted,
+            isUpdating && styles.statusButtonDisabled,
+          ]}
+          onPress={() => handleMealToggle(mealType)}
+          disabled={isUpdating}>
+          {isUpdating ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={meal.isDone ? '#FFFFFF' : '#666666'} />
+              <Text
+                style={[
+                  styles.statusButtonText,
+                  meal.isDone && styles.statusButtonTextCompleted,
+                ]}>
+                Updating...
+              </Text>
+            </View>
+          ) : (
+            <Text
+              style={[styles.statusButtonText, meal.isDone && styles.statusButtonTextCompleted]}>
+              {meal.isDone ? 'Completed' : 'Mark as Complete'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // Render exercise card
+  const renderExerciseCard = (exercise: ExerciseData, index: number) => {
+    const isUpdating = updatingExercise === `${selectedDay}-${index}`;
+
+    return (
+      <View style={styles.exerciseCard} key={index}>
+        <View style={styles.exerciseHeader}>
+          <Text style={styles.exerciseName}>{exercise.name}</Text>
+          <TouchableOpacity
+            style={[
+              styles.exerciseStatusButton,
+              exercise.isDone && styles.exerciseStatusButtonCompleted,
+              isUpdating && styles.exerciseStatusButtonDisabled,
+            ]}
+            onPress={() => handleExerciseToggle(index)}
+            disabled={isUpdating}>
+            {isUpdating ? (
+              <ActivityIndicator size="small" color={exercise.isDone ? '#FFFFFF' : '#666666'} />
+            ) : (
+              <Ionicons
+                name={exercise.isDone ? 'checkmark-circle' : 'ellipse-outline'}
+                size={24}
+                color={exercise.isDone ? '#FFFFFF' : '#F59E0B'}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.exerciseDetails}>
+          {exercise.sets} sets × {exercise.reps}
+        </Text>
+        <Text style={styles.exerciseTarget}>Target: {exercise.targetMuscle}</Text>
+        <Text style={styles.exerciseEquipment}>Equipment: {exercise.equipment}</Text>
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#8B0000" />
+        <Text style={styles.loadingText}>Loading your plans...</Text>
+      </View>
+    );
+  }
+
+  if (plans.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="dark" backgroundColor="#FFFFFF" />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#8B0000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Meal & Exercise Plans</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No meal & exercise plans found</Text>
+          <TouchableOpacity 
+            style={styles.createButton}
+            onPress={() => navigation.navigate('PlanSelection' as never)}
+          >
+            <Text style={styles.createButtonText}>Create New Plan</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Meal & Exercise Plan</Text>
-          <TouchableOpacity style={styles.menuButton}>
-            <Ionicons name="menu" size={24} color="#333" />
-          </TouchableOpacity>
+      <StatusBar style="dark" backgroundColor="#FFFFFF" />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#8B0000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Meal & Exercise Plans</Text>
+        <View style={styles.placeholder} />
+      </View>
+
+      <ScrollView
+        style={styles.scrollContainer}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}>
+        
+        {/* Plan Selector */}
+        <View style={styles.planSelector}>
+          <Text style={styles.sectionTitle}>Select Plan</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.planScrollView}>
+            {plans.map((plan) => (
+              <TouchableOpacity
+                key={plan._id}
+                style={[styles.planButton, selectedPlan === plan._id && styles.planButtonSelected]}
+                onPress={() => {
+                  setSelectedPlan(plan._id);
+                  setSelectedDay(1);
+                }}>
+                <Text style={[styles.planButtonText, selectedPlan === plan._id && styles.planButtonTextSelected]}>
+                  {plan.name}
+                </Text>
+                <Text style={[styles.planButtonSubtext, selectedPlan === plan._id && styles.planButtonSubtextSelected]}>
+                  {plan.duration} days • {plan.goal}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
-        {/* Daily Progress Title */}
-        <View style={styles.titleSection}>
-          <Text style={styles.mainTitle}>Your Progress Today</Text>
-          <Text style={styles.subtitle}>Track your nutrition and fitness goals</Text>
-        </View>
-
-        {/* Calorie Cards */}
-        <View style={styles.calorieCardsContainer}>
-          {/* Intake Calories Card */}
-          <View style={styles.calorieCard}>
-            <View style={styles.cardHeader}>
-              <View style={styles.iconContainer}>
-                <Ionicons name="bar-chart" size={20} color="#22C55E" />
-              </View>
-              <Text style={styles.cardLabel}>Intake Calories</Text>
-            </View>
-            <Text style={styles.calorieNumber}>2,005</Text>
-            <View style={styles.progressBarContainer}>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${progressPercentage}%` }]} />
-              </View>
-              <Text style={styles.progressText}>{progressPercentage.toFixed(0)}% of target</Text>
-            </View>
-            <Text style={styles.mealsCompleted}>
-              {completedMeals}/{totalMeals} meals completed
-            </Text>
+        {/* Day Selector */}
+        {currentPlan && (
+          <View style={styles.daySelector}>
+            <Text style={styles.sectionTitle}>Select Day</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayScrollView}>
+              {currentPlan.todoList.map((day) => (
+                <TouchableOpacity
+                  key={day.day}
+                  style={[styles.dayButton, selectedDay === day.day && styles.dayButtonSelected]}
+                  onPress={() => setSelectedDay(day.day)}>
+                  <Text style={[styles.dayButtonText, selectedDay === day.day && styles.dayButtonTextSelected]}>
+                    Day {day.day}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
+        )}
 
-          {/* Target Calories Card */}
-          <View style={styles.calorieCard}>
-            <View style={styles.cardHeader}>
-              <View style={[styles.iconContainer, { backgroundColor: '#FEF3C7' }]}>
-                <Ionicons name="flag" size={20} color="#F59E0B" />
-              </View>
-              <Text style={styles.cardLabel}>Target Calories</Text>
+        {/* Current Day Content */}
+        {currentDay && (
+          <View style={styles.contentContainer}>
+            <Text style={styles.dayTitle}>Day {currentDay.day} - {new Date(currentDay.date).toLocaleDateString()}</Text>
+            <Text style={styles.dailyCalories}>Daily Target: {currentDay.dailyCalories} calories</Text>
+
+            {/* Meals Section */}
+            <View style={styles.mealsSection}>
+              <Text style={styles.sectionTitle}>Meals</Text>
+              {renderMealCard(currentDay.breakfast, 'breakfast')}
+              {renderMealCard(currentDay.lunch, 'lunch')}
+              {renderMealCard(currentDay.dinner, 'dinner')}
             </View>
-            <Text style={[styles.calorieNumber, { color: '#F59E0B' }]}>2,005</Text>
-            <View style={styles.goalContainer}>
-              <Text style={styles.goalLabel}>Daily Goal</Text>
-              <Text style={styles.remainingText}>0 remaining</Text>
-            </View>
-          </View>
-        </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionsSection}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+            {/* Exercise Section */}
+            <View style={styles.exerciseSection}>
+              <Text style={styles.sectionTitle}>Exercise</Text>
+              <View style={styles.exerciseOverview}>
+                <Text style={styles.exerciseSessionName}>{currentDay.exercise.exerciseName}</Text>
+                <Text style={styles.exerciseSessionDuration}>{currentDay.exercise.totalSession}</Text>
+                <Text style={styles.exerciseCalories}>{currentDay.exercise.caloriesBurned} calories to burn</Text>
+              </View>
 
-          {/* Create Meal Plan Button */}
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleCreateMealPlan}
-            activeOpacity={0.8}>
-            <LinearGradient
-              colors={['#22C55E', '#16A34A']}
-              style={styles.actionGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}>
-              <View style={styles.actionContent}>
-                <View style={styles.actionIcon}>
-                  <Ionicons name="restaurant" size={28} color="white" />
-                </View>
-                <View style={styles.actionTextContainer}>
-                  <Text style={styles.actionTitle}>Create Meal & Exercise Plan</Text>
-                  <Text style={styles.actionDescription}>Plan your exercises and meals</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="white" />
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
+              <Text style={styles.sectionTitle}>Exercises:</Text>
+              {currentDay.exercise.exercises.map((exercise, index) => 
+                renderExerciseCard(exercise, index)
+              )}
 
-          {/* Create Exercise Plan Button */}
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleCreateExercisePlan}
-            activeOpacity={0.8}>
-            <LinearGradient
-              colors={['#8B4A6B', '#6B3252']}
-              style={styles.actionGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}>
-              <View style={styles.actionContent}>
-                <View style={styles.actionIcon}>
-                  <Ionicons name="fitness" size={28} color="white" />
-                </View>
-                <View style={styles.actionTextContainer}>
-                  <Text style={styles.actionTitle}>Create Exercise Plan</Text>
-                  <Text style={styles.actionDescription}>Design your workout routine</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="white" />
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {/* Stats Overview */}
-        <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>Weekly Overview</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <View style={styles.statIconContainer}>
-                <Ionicons name="flame" size={24} color="#EF4444" />
-              </View>
-              <Text style={styles.statValue}>1,240</Text>
-              <Text style={styles.statLabel}>Calories Burned</Text>
-            </View>
-            <View style={styles.statItem}>
-              <View style={styles.statIconContainer}>
-                <Ionicons name="time" size={24} color="#3B82F6" />
-              </View>
-              <Text style={styles.statValue}>5.2</Text>
-              <Text style={styles.statLabel}>Hours Active</Text>
-            </View>
-            <View style={styles.statItem}>
-              <View style={styles.statIconContainer}>
-                <Ionicons name="trophy" size={24} color="#F59E0B" />
-              </View>
-              <Text style={styles.statValue}>85%</Text>
-              <Text style={styles.statLabel}>Goals Met</Text>
+              <Text style={styles.sectionTitle}>Exercise Notes:</Text>
+              <TextInput
+                style={styles.notesInput}
+                placeholder="Add your exercise notes here..."
+                placeholderTextColor="#999"
+                value={getExerciseNotes()}
+                onChangeText={setExerciseNotesForDay}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
             </View>
           </View>
-        </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -171,222 +659,340 @@ export default function MealExercisePlanScreen({ navigation }: MealExercisePlanS
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F9FA',
   },
-  scrollView: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  createButton: {
+    backgroundColor: '#8B0000',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  createButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: 'white',
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1E293B',
-  },
-  menuButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-  },
-  titleSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 25,
-    backgroundColor: 'white',
-  },
-  mainTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 5,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#64748B',
-  },
-  calorieCardsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 12,
-    marginBottom: 25,
-  },
-  calorieCard: {
-    flex: 1,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
+    borderBottomColor: '#E9ECEF',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#DCFCE7',
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF2F2',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
   },
-  cardLabel: {
-    fontSize: 14,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  calorieNumber: {
-    fontSize: 28,
+  headerTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#22C55E',
-    marginBottom: 15,
+    color: '#8B0000',
   },
-  progressBarContainer: {
-    marginBottom: 12,
+  placeholder: {
+    width: 40,
   },
-  progressBar: {
-    height: 6,
-    backgroundColor: '#E2E8F0',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 6,
+  scrollContainer: {
+    flex: 1,
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#22C55E',
-    borderRadius: 3,
+  planSelector: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
   },
-  progressText: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
+  planScrollView: {
+    flexDirection: 'row',
   },
-  mealsCompleted: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  goalContainer: {
-    backgroundColor: '#FEF3C7',
+  planButton: {
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 8,
-    padding: 12,
-    marginTop: 10,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    minWidth: 150,
   },
-  goalLabel: {
+  planButtonSelected: {
+    backgroundColor: '#8B0000',
+    borderColor: '#8B0000',
+  },
+  planButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  planButtonTextSelected: {
+    color: '#FFFFFF',
+  },
+  planButtonSubtext: {
     fontSize: 12,
-    color: '#92400E',
+    color: '#6B7280',
+  },
+  planButtonSubtextSelected: {
+    color: '#FFFFFF',
+    opacity: 0.8,
+  },
+  daySelector: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+  },
+  dayScrollView: {
+    flexDirection: 'row',
+  },
+  dayButton: {
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+  },
+  dayButtonSelected: {
+    backgroundColor: '#8B0000',
+    borderColor: '#8B0000',
+  },
+  dayButtonText: {
+    fontSize: 14,
+    color: '#6B7280',
     fontWeight: '500',
+  },
+  dayButtonTextSelected: {
+    color: '#FFFFFF',
+  },
+  contentContainer: {
+    padding: 16,
+  },
+  dayTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
     marginBottom: 4,
   },
-  remainingText: {
+  dailyCalories: {
     fontSize: 14,
-    color: '#92400E',
-    fontWeight: '600',
-  },
-  actionsSection: {
-    paddingHorizontal: 20,
-    marginBottom: 25,
+    color: '#8B0000',
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 15,
-  },
-  actionButton: {
+    color: '#1F2937',
     marginBottom: 12,
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    marginTop: 20,
   },
-  actionGradient: {
-    padding: 20,
+  mealsSection: {
+    marginBottom: 20,
   },
-  actionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  actionTextContainer: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-    marginBottom: 4,
-  },
-  actionDescription: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  statsSection: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  statItem: {
-    flex: 1,
-    backgroundColor: 'white',
+  mealCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    alignItems: 'center',
+    marginBottom: 16,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  statIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
+  mealHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1E293B',
+  mealTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mealIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  mealType: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  caloriesText: {
+    fontSize: 14,
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  mealName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  ingredientsList: {
+    marginBottom: 12,
+  },
+  ingredientItem: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  recipeList: {
+    marginBottom: 12,
+  },
+  recipeStep: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  notesInput: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#1F2937',
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    marginBottom: 12,
+    minHeight: 60,
+  },
+  statusButton: {
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  statusButtonCompleted: {
+    backgroundColor: '#10B981',
+  },
+  statusButtonDisabled: {
+    opacity: 0.7,
+  },
+  statusButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  statusButtonTextCompleted: {
+    color: '#FFFFFF',
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exerciseSection: {
+    marginBottom: 20,
+  },
+  exerciseOverview: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  exerciseSessionName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
     marginBottom: 4,
   },
-  statLabel: {
+  exerciseSessionDuration: {
+    fontSize: 14,
+    color: '#F59E0B',
+    marginBottom: 4,
+  },
+  exerciseCalories: {
     fontSize: 12,
-    color: '#64748B',
-    textAlign: 'center',
+    color: '#6B7280',
+  },
+  exerciseCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  exerciseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  exerciseName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    flex: 1,
+  },
+  exerciseStatusButton: {
+    padding: 4,
+  },
+  exerciseStatusButtonCompleted: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 12,
+  },
+  exerciseStatusButtonDisabled: {
+    opacity: 0.7,
+  },
+  exerciseDetails: {
+    fontSize: 12,
+    color: '#F59E0B',
+    marginBottom: 4,
+  },
+  exerciseTarget: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  exerciseEquipment: {
+    fontSize: 12,
+    color: '#6B7280',
   },
 });

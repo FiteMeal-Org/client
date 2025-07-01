@@ -14,9 +14,15 @@ import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as SecureStore from 'expo-secure-store';
 import { getUserProfile, UserProfile } from '../services/profileService';
 import { API_CONFIG } from '../config/api';
+import {
+  validateProfileForPlanCreation,
+  showProfileIncompleteAlert,
+  showProfileErrorAlert,
+} from '../services/profileValidationService';
 
 export default function AddMealExercisePlanScreen() {
   const navigation = useNavigation();
@@ -28,6 +34,8 @@ export default function AddMealExercisePlanScreen() {
   const [equipment, setEquipment] = useState('');
   const [duration, setDuration] = useState<3 | 5 | 7>(7);
   const [startDate, setStartDate] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Profile data
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -49,6 +57,18 @@ export default function AddMealExercisePlanScreen() {
       Alert.alert('Error', 'Failed to load profile data. Please ensure your profile is complete.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const formatDate = (date: Date): string => {
+    return date.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format
+  };
+
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setSelectedDate(selectedDate);
+      setStartDate(formatDate(selectedDate));
     }
   };
 
@@ -80,7 +100,28 @@ export default function AddMealExercisePlanScreen() {
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
+    // Validasi profil menggunakan service
     try {
+      console.log('🔍 AddMealExercisePlanScreen: Validating profile...');
+      const validation = await validateProfileForPlanCreation();
+
+      if (!validation.isValid) {
+        console.log('❌ AddMealExercisePlanScreen: Profile incomplete:', validation.missingFields);
+        if (validation.missingFields.includes('profile_error')) {
+          showProfileErrorAlert(navigation);
+        } else {
+          showProfileIncompleteAlert(validation.missingFields, navigation);
+        }
+        return;
+      }
+
+      console.log('✅ AddMealExercisePlanScreen: Profile is valid, proceeding with plan creation');
+      const profile = validation.profile;
+
+      if (!profile) {
+        throw new Error('Profile data is missing');
+      }
+
       setSubmitting(true);
 
       const token = await SecureStore.getItemAsync('access_token');
@@ -94,11 +135,11 @@ export default function AddMealExercisePlanScreen() {
 
       const requestBody = {
         name: name.trim(),
-        age: profile!.age,
-        weight: profile!.weight,
-        height: profile!.height,
-        gender: profile!.gender,
-        activity_level: profile!.activityLevel,
+        age: profile.age,
+        weight: profile.weight,
+        height: profile.height,
+        gender: profile.gender,
+        activity_level: profile.activityLevel,
         goals,
         preferences: preferences.trim(),
         equipment: equipment.trim(),
@@ -128,8 +169,19 @@ export default function AddMealExercisePlanScreen() {
 
       Alert.alert('Success!', 'Your meal & exercise plan has been created successfully!', [
         {
-          text: 'OK',
-          onPress: () => navigation.navigate('Plans' as never),
+          text: 'View Plan',
+          onPress: () => {
+            // Clear form
+            setName('');
+            setStartDate('');
+            setGoals('maintenance');
+            setDuration(7);
+            setPreferences('');
+            setEquipment('');
+
+            // Navigate to MealExercisePlan screen
+            navigation.navigate('MealExercisePlan' as never);
+          },
         },
       ]);
     } catch (error) {
@@ -207,47 +259,77 @@ export default function AddMealExercisePlanScreen() {
         </View>
 
         {/* Goals */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Goals *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={goals}
-              onValueChange={(itemValue) => setGoals(itemValue)}
-              style={styles.picker}>
-              <Picker.Item label="Cutting (Weight Loss)" value="cutting" />
-              <Picker.Item label="Maintenance" value="maintenance" />
-              <Picker.Item label="Bulking (Weight Gain)" value="bulking" />
-            </Picker>
-          </View>
+        <Text style={styles.inputLabel}>Goals</Text>
+        <View style={styles.goalsContainer}>
+          {['Cutting', 'Maintenance', 'Bulking'].map((goal) => (
+            <TouchableOpacity
+              key={goal}
+              style={[styles.goalOption, goals === goal.toLowerCase() && styles.goalOptionSelected]}
+              onPress={() => setGoals(goal.toLowerCase() as 'cutting' | 'maintenance' | 'bulking')}>
+              <Text
+                style={[
+                  styles.goalOptionText,
+                  goals === goal.toLowerCase() && styles.goalOptionTextSelected,
+                ]}>
+                {goal}
+              </Text>
+              <Text
+                style={[
+                  styles.goalSubtext,
+                  goals === goal.toLowerCase() && styles.goalSubtextSelected,
+                ]}>
+                {goal === 'Cutting'
+                  ? 'Lose body fat'
+                  : goal === 'Maintenance'
+                    ? 'Maintain current weight'
+                    : 'Build muscle mass'}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Duration */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Duration *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={duration}
-              onValueChange={(itemValue) => setDuration(itemValue)}
-              style={styles.picker}>
-              <Picker.Item label="3 Days" value={3} />
-              <Picker.Item label="5 Days" value={5} />
-              <Picker.Item label="7 Days" value={7} />
-            </Picker>
-          </View>
+        <Text style={styles.inputLabel}>Plan Duration</Text>
+        <View style={styles.durationContainer}>
+          {[3, 5, 7].map((days) => (
+            <TouchableOpacity
+              key={days}
+              style={[styles.durationOption, duration === days && styles.durationOptionSelected]}
+              onPress={() => setDuration(days as 3 | 5 | 7)}>
+              <Text
+                style={[
+                  styles.durationOptionText,
+                  duration === days && styles.durationOptionTextSelected,
+                ]}>
+                {days} Days
+              </Text>
+              <Text
+                style={[
+                  styles.durationSubtext,
+                  duration === days && styles.durationSubtextSelected,
+                ]}>
+                {days === 3 ? 'Quick Start' : days === 5 ? 'Balanced Plan' : 'Complete Plan'}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Start Date */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Start Date *</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="YYYY-MM-DD (e.g., 2024-12-25)"
-            value={startDate}
-            onChangeText={setStartDate}
-            maxLength={10}
+        <Text style={styles.inputLabel}>Start Date</Text>
+        <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
+          <Text style={styles.dateText}>{startDate || 'Select Date'}</Text>
+          <Ionicons name="chevron-down" size={20} color="#999" />
+        </TouchableOpacity>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display="default"
+            onChange={onDateChange}
+            minimumDate={new Date()}
           />
-          <Text style={styles.helpText}>Format: YYYY-MM-DD</Text>
-        </View>
+        )}
 
         {/* Preferences */}
         <View style={styles.inputGroup}>
@@ -436,5 +518,104 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  // Add new styles for goal and duration picker components
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  goalsContainer: {
+    gap: 12,
+    marginBottom: 25,
+  },
+  goalOption: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  goalOptionSelected: {
+    borderColor: '#8B0000',
+    backgroundColor: '#FEF2F2',
+  },
+  goalOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 4,
+  },
+  goalOptionTextSelected: {
+    color: '#8B0000',
+  },
+  goalSubtext: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+  goalSubtextSelected: {
+    color: '#DC2626',
+  },
+  durationContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 25,
+  },
+  durationOption: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  durationOptionSelected: {
+    borderColor: '#8B0000',
+    backgroundColor: '#FEF2F2',
+  },
+  durationOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 4,
+  },
+  durationOptionTextSelected: {
+    color: '#8B0000',
+  },
+  durationSubtext: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center' as const,
+  },
+  durationSubtextSelected: {
+    color: '#DC2626',
+  },
+  datePickerButton: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  dateText: {
+    fontSize: 16,
+    color: '#334155',
   },
 });
