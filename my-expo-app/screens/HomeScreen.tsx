@@ -18,6 +18,7 @@ import {
   checkUserMealExercisePlan,
   calculateMealExerciseTodayIntake,
   calculateMealExerciseBurn,
+  calculateExercisePlanBurn,
 } from '../services/mealPlanService';
 import { getUserProfile } from '../services/profileService'; // Import profile service
 import {
@@ -110,7 +111,7 @@ export default function HomeScreen() {
             { text: 'Cancel', style: 'cancel' },
             {
               text: 'Go Premium',
-              onPress: () => navigation.navigate('Premium' as never)
+              onPress: () => navigation.navigate('Premium' as never),
             },
           ]
         );
@@ -268,15 +269,59 @@ export default function HomeScreen() {
           hasExercisePlan: result.hasExercisePlan,
           exercisePlanCount: result.exercisePlanCount,
         });
+
+        // Calculate burn calories from standalone exercise plans
+        if (
+          result.hasExercisePlan &&
+          Array.isArray(result.ongoingExercisePlans) &&
+          result.ongoingExercisePlans.length > 0
+        ) {
+          console.log('🏋️ HomeScreen: ✅ Has exercise plans, calculating burn calories...');
+          try {
+            const exerciseBurnData = calculateExercisePlanBurn(result.ongoingExercisePlans);
+            console.log(
+              '🏋️ HomeScreen: Received exercise burn data from standalone plans:',
+              exerciseBurnData
+            );
+
+            if (exerciseBurnData && typeof exerciseBurnData === 'object') {
+              console.log('🏋️ HomeScreen: ✅ Setting exercise burn data from standalone plans:');
+              console.log('   - burnedCalories:', exerciseBurnData.burnedCalories);
+              console.log('   - targetBurnCalories:', exerciseBurnData.targetBurnCalories);
+              console.log('   - completedExercises:', exerciseBurnData.completedExercises);
+              console.log('   - totalExercises:', exerciseBurnData.totalExercises);
+
+              setBurnedCalories(exerciseBurnData.burnedCalories || 0);
+              setTargetBurnCalories(exerciseBurnData.targetBurnCalories || 0);
+              setBurnPercentage(exerciseBurnData.burnPercentage || 0);
+              setRemainingBurnCalories(exerciseBurnData.remainingBurnCalories || 0);
+              setCompletedExercises(exerciseBurnData.completedExercises || 0);
+              setTotalExercises(exerciseBurnData.totalExercises || 0);
+            } else {
+              console.log(
+                '❌ HomeScreen: Invalid exercise burn data received from standalone plans'
+              );
+              resetExerciseCalorieData();
+            }
+          } catch (error) {
+            console.error('❌ HomeScreen: Error calculating standalone exercise plan burn:', error);
+            resetExerciseCalorieData();
+          }
+        } else {
+          console.log('🏋️ HomeScreen: ❌ No ongoing exercise plans, resetting exercise data');
+          resetExerciseCalorieData();
+        }
       } else {
         console.log('❌ HomeScreen: Invalid exercise plan result');
         setHasExercisePlan(false);
         setExercisePlanCount(0);
+        resetExerciseCalorieData();
       }
     } catch (error) {
       console.error('❌ HomeScreen: Error checking exercise plan status:', error);
       setHasExercisePlan(false);
       setExercisePlanCount(0);
+      resetExerciseCalorieData();
     } finally {
       setExercisePlanLoading(false);
     }
@@ -299,19 +344,35 @@ export default function HomeScreen() {
         });
 
         // Prioritas logika kalori:
-        // 1. Jika ada meal plan → gunakan kalori dari meal plan  
+        // 1. Jika ada meal plan → gunakan kalori dari meal plan
         // 2. Jika tidak ada meal plan tapi ada meal & exercise plan → gunakan kalori dari meal & exercise plan
         // 3. Jika tidak ada keduanya → reset kalori data
 
         console.log('🍽️🏋️ HomeScreen: Calorie logic - mealPlanExists:', mealPlanExists);
-        console.log('🍽️🏋️ HomeScreen: Calorie logic - hasMealExercisePlan:', result.hasMealExercisePlan);
-        console.log('🍽️🏋️ HomeScreen: Calorie logic - ongoing plans length:', result.ongoingPlans?.length);
+        console.log(
+          '🍽️🏋️ HomeScreen: Calorie logic - hasMealExercisePlan:',
+          result.hasMealExercisePlan
+        );
+        console.log(
+          '🍽️🏋️ HomeScreen: Calorie logic - ongoing plans length:',
+          result.ongoingPlans?.length
+        );
 
-        if (!mealPlanExists && result.hasMealExercisePlan && Array.isArray(result.ongoingPlans) && result.ongoingPlans.length > 0) {
-          console.log('🍽️🏋️ HomeScreen: ✅ Condition met: No meal plan but has meal & exercise plan, calculating calories...');
+        if (
+          !mealPlanExists &&
+          result.hasMealExercisePlan &&
+          Array.isArray(result.ongoingPlans) &&
+          result.ongoingPlans.length > 0
+        ) {
+          console.log(
+            '🍽️🏋️ HomeScreen: ✅ Condition met: No meal plan but has meal & exercise plan, calculating calories...'
+          );
           try {
             const calorieData = calculateMealExerciseTodayIntake(result.ongoingPlans);
-            console.log('🍽️🏋️ HomeScreen: Received calorie data from meal & exercise plan:', calorieData);
+            console.log(
+              '🍽️🏋️ HomeScreen: Received calorie data from meal & exercise plan:',
+              calorieData
+            );
 
             if (calorieData && typeof calorieData === 'object') {
               console.log('🍽️🏋️ HomeScreen: ✅ Setting calorie data from meal & exercise plan:');
@@ -336,7 +397,9 @@ export default function HomeScreen() {
           }
         } else if (!mealPlanExists && !result.hasMealExercisePlan) {
           // If no meal plan and no meal & exercise plan, reset calorie data
-          console.log('🍽️🏋️ HomeScreen: ❌ No meal plan and no meal & exercise plan, resetting calorie data');
+          console.log(
+            '🍽️🏋️ HomeScreen: ❌ No meal plan and no meal & exercise plan, resetting calorie data'
+          );
           resetCalorieData();
         } else if (mealPlanExists) {
           console.log('🍽️🏋️ HomeScreen: ℹ️ Meal plan exists, keeping meal plan calorie data');
@@ -345,52 +408,92 @@ export default function HomeScreen() {
           console.log('🍽️🏋️ HomeScreen: ⚠️ Unhandled condition for calorie logic');
         }
 
-        // Calculate exercise burn calories from meal & exercise plans
-        // Priority: 
-        // 1. If there are standalone exercise plans → use exercise plan data
+        // Calculate exercise burn calories with priority logic:
+        // 1. If there are standalone exercise plans → use exercise plan data (KEEP existing data from checkExercisePlanStatus)
         // 2. If no exercise plans but has meal & exercise plan → use meal & exercise plan exercise data
         // 3. If neither → reset exercise data
 
         const hasStandaloneExercisePlan = hasExercisePlan && exercisePlanCount > 0;
-        console.log('🍽️🏋️ HomeScreen: Exercise burn logic - hasStandaloneExercisePlan:', hasStandaloneExercisePlan);
-        console.log('🍽️🏋️ HomeScreen: Exercise burn logic - hasMealExercisePlan:', result.hasMealExercisePlan);
+        console.log(
+          '🍽️🏋️ HomeScreen: Exercise burn logic - hasStandaloneExercisePlan:',
+          hasStandaloneExercisePlan
+        );
+        console.log(
+          '🍽️🏋️ HomeScreen: Exercise burn logic - hasMealExercisePlan:',
+          result.hasMealExercisePlan
+        );
 
-        if (!hasStandaloneExercisePlan && result.hasMealExercisePlan && Array.isArray(result.ongoingPlans) && result.ongoingPlans.length > 0) {
-          console.log('🍽️🏋️ HomeScreen: ✅ Condition met: No standalone exercise plan but has meal & exercise plan, calculating exercise burn...');
-          try {
-            const exerciseBurnData = calculateMealExerciseBurn(result.ongoingPlans);
-            console.log('🍽️🏋️ HomeScreen: Received exercise burn data from meal & exercise plan:', exerciseBurnData);
+        if (hasStandaloneExercisePlan) {
+          console.log(
+            '🍽️🏋️ HomeScreen: ✅ Standalone exercise plan exists, keeping exercise plan data (already set by checkExercisePlanStatus)'
+          );
+          // Do nothing, exercise plan data should already be set by checkExercisePlanStatus
+        } else if (!hasStandaloneExercisePlan && result.hasMealExercisePlan) {
+          // Check if there are any meal & exercise plans (ongoing or upcoming)
+          const ongoingPlans = Array.isArray(result.ongoingPlans) ? result.ongoingPlans : [];
+          const upcomingPlans = Array.isArray(result.upcomingPlans) ? result.upcomingPlans : [];
+          const allMealExercisePlans = [...ongoingPlans, ...upcomingPlans];
 
-            if (exerciseBurnData && typeof exerciseBurnData === 'object') {
-              console.log('🍽️🏋️ HomeScreen: ✅ Setting exercise burn data from meal & exercise plan:');
-              console.log('   - burnedCalories:', exerciseBurnData.burnedCalories);
-              console.log('   - targetBurnCalories:', exerciseBurnData.targetBurnCalories);
-              console.log('   - completedExercises:', exerciseBurnData.completedExercises);
-              console.log('   - totalExercises:', exerciseBurnData.totalExercises);
+          console.log('🍽️🏋️ HomeScreen: Meal & exercise plans available:', {
+            ongoingCount: ongoingPlans.length,
+            upcomingCount: upcomingPlans.length,
+            totalCount: allMealExercisePlans.length,
+          });
 
-              setBurnedCalories(exerciseBurnData.burnedCalories || 0);
-              setTargetBurnCalories(exerciseBurnData.targetBurnCalories || 0);
-              setBurnPercentage(exerciseBurnData.burnPercentage || 0);
-              setRemainingBurnCalories(exerciseBurnData.remainingBurnCalories || 0);
-              setCompletedExercises(exerciseBurnData.completedExercises || 0);
-              setTotalExercises(exerciseBurnData.totalExercises || 0);
-            } else {
-              console.log('❌ HomeScreen: Invalid exercise burn data received from meal & exercise plan');
+          if (allMealExercisePlans.length > 0) {
+            console.log(
+              '🍽️🏋️ HomeScreen: ✅ No standalone exercise plan but has meal & exercise plan, calculating exercise burn from meal & exercise plan...'
+            );
+            try {
+              // Use ongoing plans first, if none then use all plans for calculation
+              const plansForCalculation =
+                ongoingPlans.length > 0 ? ongoingPlans : allMealExercisePlans;
+              const exerciseBurnData = calculateMealExerciseBurn(plansForCalculation);
+              console.log(
+                '🍽️🏋️ HomeScreen: Received exercise burn data from meal & exercise plan:',
+                exerciseBurnData
+              );
+
+              if (exerciseBurnData && typeof exerciseBurnData === 'object') {
+                console.log(
+                  '🍽️🏋️ HomeScreen: ✅ Setting exercise burn data from meal & exercise plan:'
+                );
+                console.log('   - burnedCalories:', exerciseBurnData.burnedCalories);
+                console.log('   - targetBurnCalories:', exerciseBurnData.targetBurnCalories);
+                console.log('   - completedExercises:', exerciseBurnData.completedExercises);
+                console.log('   - totalExercises:', exerciseBurnData.totalExercises);
+
+                setBurnedCalories(exerciseBurnData.burnedCalories || 0);
+                setTargetBurnCalories(exerciseBurnData.targetBurnCalories || 0);
+                setBurnPercentage(exerciseBurnData.burnPercentage || 0);
+                setRemainingBurnCalories(exerciseBurnData.remainingBurnCalories || 0);
+                setCompletedExercises(exerciseBurnData.completedExercises || 0);
+                setTotalExercises(exerciseBurnData.totalExercises || 0);
+              } else {
+                console.log(
+                  '❌ HomeScreen: Invalid exercise burn data received from meal & exercise plan'
+                );
+                resetExerciseCalorieData();
+              }
+            } catch (error) {
+              console.error(
+                '❌ HomeScreen: Error calculating meal & exercise plan exercise burn:',
+                error
+              );
               resetExerciseCalorieData();
             }
-          } catch (error) {
-            console.error('❌ HomeScreen: Error calculating meal & exercise plan exercise burn:', error);
+          } else {
+            console.log(
+              '🍽️🏋️ HomeScreen: ❌ Meal & exercise plan exists but no plans found, resetting exercise data'
+            );
             resetExerciseCalorieData();
           }
-        } else if (!hasStandaloneExercisePlan && !result.hasMealExercisePlan) {
-          // If no exercise plan and no meal & exercise plan, reset exercise data
-          console.log('🍽️🏋️ HomeScreen: ❌ No exercise plan and no meal & exercise plan, resetting exercise data');
-          resetExerciseCalorieData();
-        } else if (hasStandaloneExercisePlan) {
-          console.log('🍽️🏋️ HomeScreen: ℹ️ Standalone exercise plan exists, keeping exercise plan data');
-          // Do nothing, exercise plan data should already be set by checkExercisePlanStatus
         } else {
-          console.log('🍽️🏋️ HomeScreen: ⚠️ Unhandled condition for exercise burn logic');
+          // If no exercise plan and no meal & exercise plan, reset exercise data
+          console.log(
+            '🍽️🏋️ HomeScreen: ❌ No exercise plan and no meal & exercise plan, resetting exercise data'
+          );
+          resetExerciseCalorieData();
         }
       } else {
         console.log('❌ HomeScreen: Invalid meal & exercise plan result');
@@ -897,8 +1000,7 @@ export default function HomeScreen() {
               setCurrentCardIndex(cardIndex % 3); // Keep it within 0-2 range for 3 cards
             }}
             contentContainerStyle={styles.infiniteCardsContainer}
-            style={styles.cardsScrollView}
-          >
+            style={styles.cardsScrollView}>
             {/* Generate infinite scroll cards - 9 cards (3x3) for seamless looping */}
             {[0, 1, 2, 0, 1, 2, 0, 1, 2].map((cardType, index) => {
               const isExercise = cardType === 0;
@@ -913,7 +1015,7 @@ export default function HomeScreen() {
                     style={[
                       styles.infinitePlanCard,
                       isActive && styles.activeCard,
-                      !isActive && styles.inactiveCard
+                      !isActive && styles.inactiveCard,
                     ]}
                     onPress={() => {
                       if (isExercise) {
@@ -931,7 +1033,6 @@ export default function HomeScreen() {
                       }
                     }}
                     activeOpacity={0.8}>
-
                     {/* Card Background */}
                     <View style={styles.cardBackground}>
                       {/* Product Image */}
@@ -958,17 +1059,29 @@ export default function HomeScreen() {
                       <View style={styles.cardContent}>
                         <Text style={styles.cardTitle}>
                           {isExercise
-                            ? (hasExercisePlan ? 'Active Exercise Plan' : 'Fitness Program')
+                            ? hasExercisePlan
+                              ? 'Active Exercise Plan'
+                              : 'Fitness Program'
                             : isMeal
-                              ? (hasMealPlan ? 'Active Meal Plan' : 'Fresh Nutrition')
-                              : (hasMealExercisePlan ? 'Complete Wellness' : 'Full Package')}
+                              ? hasMealPlan
+                                ? 'Active Meal Plan'
+                                : 'Fresh Nutrition'
+                              : hasMealExercisePlan
+                                ? 'Complete Wellness'
+                                : 'Full Package'}
                         </Text>
                         <Text style={styles.cardPrice}>
                           {isExercise
-                            ? (hasExercisePlan ? `${exercisePlanCount} Plans` : '$29.99')
+                            ? hasExercisePlan
+                              ? `${exercisePlanCount} Plans`
+                              : '$29.99'
                             : isMeal
-                              ? (hasMealPlan ? `${mealPlanCount} Plans` : '$19.99')
-                              : (hasMealExercisePlan ? `${mealExercisePlanCount} Plans` : '$39.99')}
+                              ? hasMealPlan
+                                ? `${mealPlanCount} Plans`
+                                : '$19.99'
+                              : hasMealExercisePlan
+                                ? `${mealExercisePlanCount} Plans`
+                                : '$39.99'}
                         </Text>
                       </View>
 
@@ -978,15 +1091,19 @@ export default function HomeScreen() {
                       </TouchableOpacity>
 
                       {/* Premium Badge for non-premium features */}
-                      {((isExercise && !hasExercisePlan) || (isMealExercise && !hasMealExercisePlan)) && !user?.isPremium && (
-                        <View style={styles.premiumIndicator}>
-                          <Ionicons name="star" size={12} color="#FFD700" />
-                          <Text style={styles.premiumText}>PRO</Text>
-                        </View>
-                      )}
+                      {((isExercise && !hasExercisePlan) ||
+                        (isMealExercise && !hasMealExercisePlan)) &&
+                        !user?.isPremium && (
+                          <View style={styles.premiumIndicator}>
+                            <Ionicons name="star" size={12} color="#FFD700" />
+                            <Text style={styles.premiumText}>PRO</Text>
+                          </View>
+                        )}
 
                       {/* Active Plan Indicator */}
-                      {((isExercise && hasExercisePlan) || (isMeal && hasMealPlan) || (isMealExercise && hasMealExercisePlan)) && (
+                      {((isExercise && hasExercisePlan) ||
+                        (isMeal && hasMealPlan) ||
+                        (isMealExercise && hasMealExercisePlan)) && (
                         <View style={styles.cardActiveIndicator}>
                           <View style={styles.activeDot} />
                           <Text style={styles.activeLabel}>Active</Text>
@@ -1005,8 +1122,7 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Meal Planning</Text>
           <TouchableOpacity
             style={styles.uploadBannerCard}
-            onPress={() => handlePremiumFeaturePress('Upload Photo')}
-          >
+            onPress={() => handlePremiumFeaturePress('Upload Photo')}>
             <Image
               source={{
                 uri: 'https://media.istockphoto.com/id/1241881284/photo/hands-of-cook-photographing-mexican-tacos.jpg?s=612x612&w=0&k=20&c=zFkJ71PlN32cgEpEiuKxVwb5f89fZoI9xt4xfyRhQUM=',

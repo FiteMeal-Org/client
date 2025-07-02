@@ -14,6 +14,7 @@ import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 export default function MealPlanAndExerciseScreen({ navigation }: { navigation: any }) {
   // Meal Plan States

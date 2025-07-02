@@ -149,7 +149,7 @@ export const checkUserExercisePlan = async () => {
       allExercisePlans = [...ongoingExercisePlans, ...upcomingExercisePlans];
     } else {
       // If data is a single object or different structure
-      allExercisePlans = [data].filter(plan => plan && Object.keys(plan).length > 0);
+      allExercisePlans = [data].filter((plan) => plan && Object.keys(plan).length > 0);
     }
 
     // Filter ongoing plans (plans that are currently active)
@@ -158,8 +158,9 @@ export const checkUserExercisePlan = async () => {
       if (!plan?.startDate) return false;
       try {
         const startDate = new Date(plan.startDate);
-        const endDate = plan.endDate ? new Date(plan.endDate) :
-          new Date(startDate.getTime() + (plan.duration || 7) * 24 * 60 * 60 * 1000);
+        const endDate = plan.endDate
+          ? new Date(plan.endDate)
+          : new Date(startDate.getTime() + (plan.duration || 7) * 24 * 60 * 60 * 1000);
 
         return today >= startDate && today <= endDate;
       } catch (error) {
@@ -171,7 +172,7 @@ export const checkUserExercisePlan = async () => {
     console.log('🏋️ Processed exercise plans:', {
       total: allExercisePlans.length,
       ongoing: ongoingExercisePlans.length,
-      upcoming: upcomingExercisePlans.length
+      upcoming: upcomingExercisePlans.length,
     });
 
     const returnData = {
@@ -452,9 +453,8 @@ export const checkUserMealExercisePlan = async () => {
         const today = new Date();
         return startDate > today;
       }),
-      allPlans: plansData
+      allPlans: plansData,
     };
-
   } catch (error) {
     console.error('❌ Error in checkUserMealExercisePlan:', error);
     return {
@@ -462,7 +462,7 @@ export const checkUserMealExercisePlan = async () => {
       mealExercisePlanCount: 0,
       ongoingPlans: [],
       upcomingPlans: [],
-      allPlans: []
+      allPlans: [],
     };
   }
 };
@@ -532,10 +532,13 @@ export const calculateMealExerciseTodayIntake = (ongoingPlans: any[]) => {
 
     if (!todayData) {
       console.log(`❌ No data found for today in plan ${planIndex + 1}`);
-      console.log(`📋 Available days in plan:`, plan.todoList.map((d: any) => ({
-        day: d.day,
-        date: d.date
-      })));
+      console.log(
+        `📋 Available days in plan:`,
+        plan.todoList.map((d: any) => ({
+          day: d.day,
+          date: d.date,
+        }))
+      );
       return;
     }
 
@@ -570,7 +573,8 @@ export const calculateMealExerciseTodayIntake = (ongoingPlans: any[]) => {
     }
   });
 
-  const intakePercentage = totalTargetCalories > 0 ? (totalIntakeCalories / totalTargetCalories) * 100 : 0;
+  const intakePercentage =
+    totalTargetCalories > 0 ? (totalIntakeCalories / totalTargetCalories) * 100 : 0;
   const remainingCalories = totalTargetCalories - totalIntakeCalories;
 
   const result = {
@@ -608,14 +612,19 @@ const safeGetExerciseData = (dayData: any) => {
     return {
       caloriesBurned: totalCalories,
       isDone: anyDone,
-      exerciseName: exercise[0]?.exerciseName || exercise[0]?.excerciseName || exercise[0]?.name || 'Unknown Exercise',
+      exerciseName:
+        exercise[0]?.exerciseName ||
+        exercise[0]?.excerciseName ||
+        exercise[0]?.name ||
+        'Unknown Exercise',
     };
   }
 
   // Handle single exercise object with robust key checking
   const caloriesBurned = exercise.caloriesBurned || exercise.calories || 0;
   const isDone = exercise.isDone || exercise.completed || dayData.isDone || false;
-  const exerciseName = exercise.exerciseName || exercise.excerciseName || exercise.name || 'Unknown Exercise';
+  const exerciseName =
+    exercise.exerciseName || exercise.excerciseName || exercise.name || 'Unknown Exercise';
 
   return {
     caloriesBurned: typeof caloriesBurned === 'number' ? caloriesBurned : 0,
@@ -651,7 +660,7 @@ export const calculateTodayExerciseBurn = (ongoingExercisePlans: any[]) => {
       id: plan?._id || plan?.id,
       name: plan?.name,
       hasTodoList: !!plan?.todoList,
-      todoListLength: plan?.todoList?.length
+      todoListLength: plan?.todoList?.length,
     });
 
     if (!plan?.todoList || !Array.isArray(plan.todoList)) {
@@ -665,7 +674,9 @@ export const calculateTodayExerciseBurn = (ongoingExercisePlans: any[]) => {
         const exerciseData = safeGetExerciseData(dayData);
 
         if (!exerciseData) {
-          console.log(`⚠️ Plan ${planIndex + 1}, Day ${dayIndex + 1}: No valid exercise data found`);
+          console.log(
+            `⚠️ Plan ${planIndex + 1}, Day ${dayIndex + 1}: No valid exercise data found`
+          );
           return;
         }
 
@@ -675,14 +686,18 @@ export const calculateTodayExerciseBurn = (ongoingExercisePlans: any[]) => {
         if (caloriesBurned > 0) {
           targetBurnCalories += caloriesBurned;
           totalExercises++;
-          console.log(`🎯 Plan ${planIndex + 1}, Day ${dayIndex + 1} (${exerciseName}): Target = ${caloriesBurned} calories`);
+          console.log(
+            `🎯 Plan ${planIndex + 1}, Day ${dayIndex + 1} (${exerciseName}): Target = ${caloriesBurned} calories`
+          );
         }
 
         // Add to burned calories only if completed
         if (isDone && caloriesBurned > 0) {
           totalBurnedCalories += caloriesBurned;
           completedExercises++;
-          console.log(`✅ Plan ${planIndex + 1}, Day ${dayIndex + 1} (${exerciseName}): Completed = ${caloriesBurned} calories`);
+          console.log(
+            `✅ Plan ${planIndex + 1}, Day ${dayIndex + 1} (${exerciseName}): Completed = ${caloriesBurned} calories`
+          );
         }
       } catch (error) {
         console.error(`❌ Error processing day ${dayIndex + 1} in plan ${planIndex + 1}:`, error);
@@ -691,9 +706,8 @@ export const calculateTodayExerciseBurn = (ongoingExercisePlans: any[]) => {
     });
   }
 
-  const burnPercentage = targetBurnCalories > 0
-    ? Math.round((totalBurnedCalories / targetBurnCalories) * 100)
-    : 0;
+  const burnPercentage =
+    targetBurnCalories > 0 ? Math.round((totalBurnedCalories / targetBurnCalories) * 100) : 0;
   const remainingBurnCalories = Math.max(0, targetBurnCalories - totalBurnedCalories);
 
   const result = {
@@ -736,7 +750,7 @@ export const debugExercisePlanStructure = (data: any) => {
           name: plan.name,
           startDate: plan.startDate,
           hasTodoList: !!plan.todoList,
-          todoListLength: plan.todoList?.length
+          todoListLength: plan.todoList?.length,
         });
 
         if (plan.todoList && Array.isArray(plan.todoList)) {
@@ -745,7 +759,7 @@ export const debugExercisePlanStructure = (data: any) => {
               date: day.date,
               day: day.day,
               isDone: day.isDone,
-              exercisesCount: day.exercises?.length || 0
+              exercisesCount: day.exercises?.length || 0,
             });
           });
         }
@@ -781,7 +795,7 @@ export const calculateMealExerciseBurn = (ongoingPlans: any[]) => {
       id: plan?._id || plan?.id,
       name: plan?.name,
       hasTodoList: !!plan?.todoList,
-      todoListLength: plan?.todoList?.length
+      todoListLength: plan?.todoList?.length,
     });
 
     if (!plan?.todoList || !Array.isArray(plan.todoList)) {
@@ -809,25 +823,31 @@ export const calculateMealExerciseBurn = (ongoingPlans: any[]) => {
         if (caloriesBurned > 0) {
           targetBurnCalories += caloriesBurned;
           totalExercises++;
-          console.log(`🎯 Plan ${planIndex + 1}, Day ${dayIndex + 1} (${exerciseName}): Target = ${caloriesBurned} calories`);
+          console.log(
+            `🎯 Plan ${planIndex + 1}, Day ${dayIndex + 1} (${exerciseName}): Target = ${caloriesBurned} calories`
+          );
         }
 
         // Add to burned calories only if day is marked as completed
         if (isDone && caloriesBurned > 0) {
           totalBurnedCalories += caloriesBurned;
           completedExercises++;
-          console.log(`✅ Plan ${planIndex + 1}, Day ${dayIndex + 1} (${exerciseName}): Completed = ${caloriesBurned} calories`);
+          console.log(
+            `✅ Plan ${planIndex + 1}, Day ${dayIndex + 1} (${exerciseName}): Completed = ${caloriesBurned} calories`
+          );
         }
       } catch (error) {
-        console.error(`❌ Error processing day ${dayIndex + 1} in meal-exercise plan ${planIndex + 1}:`, error);
+        console.error(
+          `❌ Error processing day ${dayIndex + 1} in meal-exercise plan ${planIndex + 1}:`,
+          error
+        );
         console.log('❌ Day data that caused error:', dayData);
       }
     });
   }
 
-  const burnPercentage = targetBurnCalories > 0
-    ? Math.round((totalBurnedCalories / targetBurnCalories) * 100)
-    : 0;
+  const burnPercentage =
+    targetBurnCalories > 0 ? Math.round((totalBurnedCalories / targetBurnCalories) * 100) : 0;
   const remainingBurnCalories = Math.max(0, targetBurnCalories - totalBurnedCalories);
 
   const result = {
@@ -890,4 +910,98 @@ export const updateMealExerciseStatus = async (
     console.error('❌ Error updating meal-exercise status:', error);
     throw error;
   }
+};
+
+// Function untuk menghitung kalori bakar dari exercise plan standalone
+export const calculateExercisePlanBurn = (ongoingExercisePlans: any[]) => {
+  console.log(
+    '🏋️ START: calculateExercisePlanBurn with standalone exercise plans:',
+    ongoingExercisePlans
+  );
+
+  if (!Array.isArray(ongoingExercisePlans) || ongoingExercisePlans.length === 0) {
+    console.log('❌ No ongoing exercise plans provided');
+    return {
+      burnedCalories: 0,
+      targetBurnCalories: 0,
+      burnPercentage: 0,
+      remainingBurnCalories: 0,
+      completedExercises: 0,
+      totalExercises: 0,
+    };
+  }
+
+  let totalBurnedCalories = 0;
+  let targetBurnCalories = 0;
+  let completedExercises = 0;
+  let totalExercises = 0;
+
+  const today = new Date();
+  const todayDateString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+  for (let planIndex = 0; planIndex < ongoingExercisePlans.length; planIndex++) {
+    const plan = ongoingExercisePlans[planIndex];
+    console.log(`🏋️ Processing exercise plan ${planIndex + 1}:`, {
+      id: plan?._id || plan?.id,
+      name: plan?.name,
+      hasTodoList: !!plan?.todoList,
+      todoListLength: plan?.todoList?.length,
+    });
+
+    if (!plan?.todoList || !Array.isArray(plan.todoList)) {
+      console.log(`❌ Plan ${planIndex + 1}: No todoList found in exercise plan`);
+      continue;
+    }
+
+    // Find today's exercise in the todoList
+    const todayExercise = plan.todoList.find((dayData: any) => {
+      if (!dayData.date) return false;
+      const exerciseDate = new Date(dayData.date).toISOString().split('T')[0];
+      return exerciseDate === todayDateString;
+    });
+
+    if (todayExercise) {
+      console.log(`🏋️ Plan ${planIndex + 1}: Found today's exercise:`, {
+        day: todayExercise.day,
+        exerciseName: todayExercise.exerciseName || todayExercise.excerciseName,
+        caloriesBurned: todayExercise.caloriesBurned,
+        isDone: todayExercise.isDone,
+      });
+
+      totalExercises++;
+
+      if (todayExercise.isDone) {
+        completedExercises++;
+        const caloriesBurned = todayExercise.caloriesBurned || 0;
+        totalBurnedCalories += caloriesBurned;
+        console.log(
+          `✅ Plan ${planIndex + 1}: Today's exercise completed, burned ${caloriesBurned} calories`
+        );
+      } else {
+        console.log(`⏳ Plan ${planIndex + 1}: Today's exercise not completed yet`);
+      }
+
+      // Add to target (today's exercise should be completed)
+      const targetCalories = todayExercise.caloriesBurned || 0;
+      targetBurnCalories += targetCalories;
+    } else {
+      console.log(`⚠️ Plan ${planIndex + 1}: No exercise scheduled for today`);
+    }
+  }
+
+  const burnPercentage =
+    targetBurnCalories > 0 ? Math.round((totalBurnedCalories / targetBurnCalories) * 100) : 0;
+  const remainingBurnCalories = Math.max(0, targetBurnCalories - totalBurnedCalories);
+
+  const result = {
+    burnedCalories: totalBurnedCalories,
+    targetBurnCalories,
+    burnPercentage,
+    remainingBurnCalories,
+    completedExercises,
+    totalExercises,
+  };
+
+  console.log('📊 calculateExercisePlanBurn final result:', result);
+  return result;
 };
