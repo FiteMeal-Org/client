@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import type { StackNavigationProp } from '@react-navigation/stack';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 type UploadImageScreenProps = {
   navigation: StackNavigationProp<any>;
@@ -208,12 +209,15 @@ export default function UploadImageScreen({ navigation, route }: UploadImageScre
         {
           text: 'View Generated Plans',
           onPress: () => {
-            // Reset form dan navigate back to Plans with upload view mode
+            // Reset form dan navigate back to Plans tab
             setSelectedImage(null);
-            navigation.navigate('Plans', {
-              refresh: true,
-              viewMode: 'upload',
-              planId: finalPlansId,
+            navigation.navigate('BerandaNavigator', {
+              screen: 'Plans',
+              params: {
+                refresh: true,
+                viewMode: 'upload',
+                planId: finalPlansId,
+              },
             });
           },
         },
@@ -235,6 +239,8 @@ export default function UploadImageScreen({ navigation, route }: UploadImageScre
 
   return (
     <SafeAreaView style={styles.container}>
+      <LoadingOverlay visible={isUploading} type="upload" message="Uploading your meal photo..." />
+
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>

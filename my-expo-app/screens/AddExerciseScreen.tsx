@@ -24,6 +24,7 @@ import {
   showProfileIncompleteAlert,
   showProfileErrorAlert,
 } from '../services/profileValidationService';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 type AddExerciseScreenNavigationProp = StackNavigationProp<any, 'AddExercise'>;
 
@@ -164,7 +165,7 @@ export default function AddExerciseScreen({
         Alert.alert('Success', 'Exercise plan created successfully!', [
           {
             text: 'OK',
-            onPress: () => navigation.navigate('Home'),
+            onPress: () => navigation.navigate('BerandaNavigator', { screen: 'Home' }),
           },
         ]);
       }
@@ -205,6 +206,8 @@ export default function AddExerciseScreen({
 
   return (
     <SafeAreaView style={styles.container}>
+      <LoadingOverlay visible={loading} type="create" message="Creating your exercise plan..." />
+
       {/* Header dengan tombol back - Fixed header seperti AddPlanScreen */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -217,8 +220,7 @@ export default function AddExerciseScreen({
               navigation.goBack();
             }
           }}
-          style={styles.backButton}
-        >
+          style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#8B0000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Exercise Plan</Text>
@@ -230,8 +232,7 @@ export default function AddExerciseScreen({
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        bounces={true}
-      >
+        bounces={true}>
         {/* Hero Image Section - Sekarang di dalam scroll */}
         <View style={styles.imageHeaderContainer}>
           <ImageBackground
@@ -276,9 +277,7 @@ export default function AddExerciseScreen({
 
           {/* Start Date */}
           <Text style={styles.inputLabel}>Start Date</Text>
-          <TouchableOpacity
-            style={styles.datePickerButton}
-            onPress={() => setShowDatePicker(true)}>
+          <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
             <Text style={styles.dateText}>{formatDate(startDate)}</Text>
             <Ionicons name="chevron-down" size={20} color="#999" />
           </TouchableOpacity>
@@ -326,10 +325,7 @@ export default function AddExerciseScreen({
             {['3', '5', '7'].map((days) => (
               <TouchableOpacity
                 key={days}
-                style={[
-                  styles.durationOption,
-                  duration === days && styles.durationOptionSelected,
-                ]}
+                style={[styles.durationOption, duration === days && styles.durationOptionSelected]}
                 onPress={() => setDuration(days)}>
                 <Text
                   style={[

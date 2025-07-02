@@ -19,6 +19,7 @@ import {
   showProfileIncompleteAlert,
   showProfileErrorAlert,
 } from '../services/profileValidationService';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 export default function AddScreen({ navigation }: { navigation: any }) {
   // Form state - hanya yang diperlukan
@@ -336,6 +337,8 @@ export default function AddScreen({ navigation }: { navigation: any }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <LoadingOverlay visible={loading} type="generate" message="Creating your meal plan..." />
+
       {/* Header dengan tombol back */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>

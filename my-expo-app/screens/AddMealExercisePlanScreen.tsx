@@ -23,6 +23,7 @@ import {
   showProfileIncompleteAlert,
   showProfileErrorAlert,
 } from '../services/profileValidationService';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 export default function AddMealExercisePlanScreen() {
   const navigation = useNavigation();
@@ -205,6 +206,12 @@ export default function AddMealExercisePlanScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <LoadingOverlay
+        visible={submitting}
+        type="generate"
+        message="Generating your meal & exercise plan..."
+      />
+
       <StatusBar style="dark" backgroundColor="#FFFFFF" />
 
       {/* Header */}
