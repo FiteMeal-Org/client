@@ -238,32 +238,7 @@ export default function AddMealExercisePlanScreen() {
           />
         </View>
 
-        {/* Profile Info Display */}
-        <View style={styles.profileInfoContainer}>
-          <Text style={styles.sectionTitle}>Profile Information</Text>
-          <View style={styles.profileInfoGrid}>
-            <View style={styles.profileInfoItem}>
-              <Text style={styles.profileInfoLabel}>Age</Text>
-              <Text style={styles.profileInfoValue}>{profile?.age || 'N/A'}</Text>
-            </View>
-            <View style={styles.profileInfoItem}>
-              <Text style={styles.profileInfoLabel}>Weight</Text>
-              <Text style={styles.profileInfoValue}>{profile?.weight || 'N/A'} kg</Text>
-            </View>
-            <View style={styles.profileInfoItem}>
-              <Text style={styles.profileInfoLabel}>Height</Text>
-              <Text style={styles.profileInfoValue}>{profile?.height || 'N/A'} cm</Text>
-            </View>
-            <View style={styles.profileInfoItem}>
-              <Text style={styles.profileInfoLabel}>Gender</Text>
-              <Text style={styles.profileInfoValue}>{profile?.gender || 'N/A'}</Text>
-            </View>
-            <View style={styles.profileInfoItem}>
-              <Text style={styles.profileInfoLabel}>Activity Level</Text>
-              <Text style={styles.profileInfoValue}>{profile?.activityLevel || 'N/A'}</Text>
-            </View>
-          </View>
-        </View>
+       
 
         {/* Goals */}
         <Text style={styles.inputLabel}>Goals</Text>

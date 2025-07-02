@@ -203,7 +203,7 @@ export default function ProfileFormScreen({
       <SafeAreaView style={styles.container}>
         {initialLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#8B4A6B" />
+            <ActivityIndicator size="large" color="#6366F1" />
             <Text style={styles.loadingText}>
               {isEditMode ? 'Memuat profil Anda...' : 'Memeriksa profil Anda...'}
             </Text>
@@ -216,7 +216,7 @@ export default function ProfileFormScreen({
             {isEditMode && (
               <View style={styles.editHeader}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                  <Ionicons name="arrow-back" size={24} color="#8B4A6B" />
+                  <Ionicons name="arrow-back" size={24} color="#6366F1" />
                 </TouchableOpacity>
                 <Text style={styles.editHeaderTitle}>Edit Profile</Text>
                 <View style={styles.backButton} />
@@ -224,15 +224,25 @@ export default function ProfileFormScreen({
             )}
 
             {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.logoContainer}>
-                <View style={styles.logo}>
-                  <Ionicons name={isEditMode ? 'create' : 'person-add'} size={32} color="#8B4A6B" />
+            <LinearGradient
+              colors={['#F8FAFC', '#E2E8F0', '#CBD5E1']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.headerGradient}>
+              <View style={styles.header}>
+                <View style={styles.logoContainer}>
+                  <View style={styles.logo}>
+                    <Ionicons
+                      name={isEditMode ? 'create' : 'person-add'}
+                      size={32}
+                      color="#6366F1"
+                    />
+                  </View>
                 </View>
+                <Text style={styles.title}>{getHeaderTitle()}</Text>
+                <Text style={styles.subtitle}>{getHeaderSubtitle()}</Text>
               </View>
-              <Text style={styles.title}>{getHeaderTitle()}</Text>
-              <Text style={styles.subtitle}>{getHeaderSubtitle()}</Text>
-            </View>
+            </LinearGradient>
 
             {/* Form */}
             <View style={styles.form}>
@@ -243,7 +253,7 @@ export default function ProfileFormScreen({
                   <Ionicons
                     name="resize-outline"
                     size={20}
-                    color="#8B4A6B"
+                    color="#6366F1"
                     style={styles.inputIcon}
                   />
                   <TextInput
@@ -265,7 +275,7 @@ export default function ProfileFormScreen({
                   <Ionicons
                     name="fitness-outline"
                     size={20}
-                    color="#8B4A6B"
+                    color="#6366F1"
                     style={styles.inputIcon}
                   />
                   <TextInput
@@ -287,7 +297,7 @@ export default function ProfileFormScreen({
                   <Ionicons
                     name="walk-outline"
                     size={20}
-                    color="#8B4A6B"
+                    color="#6366F1"
                     style={styles.inputIcon}
                   />
                   <View style={styles.pickerWrapper}>
@@ -295,7 +305,7 @@ export default function ProfileFormScreen({
                       selectedValue={activityLevel}
                       style={styles.picker}
                       onValueChange={(itemValue) => setActivityLevel(itemValue)}
-                      dropdownIconColor="#8B4A6B">
+                      dropdownIconColor="#84CC16">
                       <Picker.Item label="Pilih tingkat aktivitas" value="" />
                       <Picker.Item label="Inactive (Tidak Aktif)" value="inactive" />
                       <Picker.Item label="Somewhat Active (Agak Aktif)" value="somewhat active" />
@@ -321,7 +331,7 @@ export default function ProfileFormScreen({
                 style={styles.saveButtonContainer}
                 disabled={loading}>
                 <LinearGradient
-                  colors={['#8B4A6B', '#A855F7']}
+                  colors={['#6366F1', '#4F46E5']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.saveButton}>
@@ -363,7 +373,7 @@ const additionalStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,
@@ -374,17 +384,21 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#8B4A6B',
+    color: '#1F2937',
     textAlign: 'center',
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+  },
+  headerGradient: {
+    paddingBottom: 40,
+    marginBottom: 20,
   },
   header: {
     alignItems: 'center',
     paddingTop: 20,
     paddingBottom: 30,
+    paddingHorizontal: 24,
   },
   logoContainer: {
     marginBottom: 24,
@@ -396,7 +410,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#8B4A6B',
+    shadowColor: '#84CC16',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -405,19 +419,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#2D3748',
+    color: '#1F2937',
     marginBottom: 8,
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#718096',
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 24,
     paddingHorizontal: 20,
   },
   form: {
-    flex: 1,
+    paddingHorizontal: 24,
   },
   inputContainer: {
     marginBottom: 20,
@@ -432,15 +447,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
     paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowColor: '#84CC16',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
     minHeight: 56,
   },
   inputIcon: {
@@ -454,8 +469,8 @@ const styles = StyleSheet.create({
   },
   unitText: {
     fontSize: 14,
-    color: '#8B4A6B',
-    fontWeight: '500',
+    color: '#6366F1',
+    fontWeight: '600',
     marginLeft: 8,
   },
   pickerWrapper: {
@@ -486,10 +501,10 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   saveButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     paddingVertical: 18,
     alignItems: 'center',
-    shadowColor: '#8B4A6B',
+    shadowColor: '#84CC16',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

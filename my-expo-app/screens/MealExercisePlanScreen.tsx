@@ -83,10 +83,36 @@ export default function MealExercisePlanScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<number>(1);
+  const [selectedView, setSelectedView] = useState<'meals' | 'exercise'>('meals'); // New state for view toggle
   const [updatingMeal, setUpdatingMeal] = useState<string | null>(null);
   const [updatingExercise, setUpdatingExercise] = useState<string | null>(null);
   const [mealNotes, setMealNotes] = useState<{ [key: string]: string }>({});
   const [exerciseNotes, setExerciseNotes] = useState<{ [key: string]: string }>({});
+
+  // Helper function to format date to Indonesian format
+  const formatDateToIndonesian = (dateString: string): string => {
+    const date = new Date(dateString);
+    const months = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+
+    const day = date.getDate();
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+
+    return `${day} ${month} ${year}`;
+  };
 
   useEffect(() => {
     fetchMealExercisePlans();
@@ -571,90 +597,132 @@ export default function MealExercisePlanScreen() {
           </View>
         )}
 
+        {/* View Toggle Selector */}
+        {currentDay && (
+          <View style={styles.viewSelector}>
+            <Text style={styles.sectionTitle}>View</Text>
+            <View style={styles.toggleContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  selectedView === 'meals' && styles.toggleButtonSelected,
+                ]}
+                onPress={() => setSelectedView('meals')}>
+                <Text
+                  style={[
+                    styles.toggleButtonText,
+                    selectedView === 'meals' && styles.toggleButtonTextSelected,
+                  ]}>
+                  Meals
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  selectedView === 'exercise' && styles.toggleButtonSelected,
+                ]}
+                onPress={() => setSelectedView('exercise')}>
+                <Text
+                  style={[
+                    styles.toggleButtonText,
+                    selectedView === 'exercise' && styles.toggleButtonTextSelected,
+                  ]}>
+                  Exercise
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Current Day Content */}
         {currentDay && (
           <View style={styles.contentContainer}>
             <Text style={styles.dayTitle}>
-              Day {currentDay.day} - {new Date(currentDay.date).toLocaleDateString()}
+              Day {currentDay.day} - {formatDateToIndonesian(currentDay.date)}
             </Text>
             <Text style={styles.dailyCalories}>
               Daily Target: {currentDay.dailyCalories} calories
             </Text>
 
-            {/* Meals Section */}
-            <View style={styles.mealsSection}>
-              <Text style={styles.sectionTitle}>Meals</Text>
-              {renderMealCard(currentDay.breakfast, 'breakfast')}
-              {renderMealCard(currentDay.lunch, 'lunch')}
-              {renderMealCard(currentDay.dinner, 'dinner')}
-            </View>
+            {/* Conditionally render based on selected view */}
+            {selectedView === 'meals' && (
+              <View style={styles.mealsSection}>
+                <Text style={styles.sectionTitle}>Meals</Text>
+                {renderMealCard(currentDay.breakfast, 'breakfast')}
+                {renderMealCard(currentDay.lunch, 'lunch')}
+                {renderMealCard(currentDay.dinner, 'dinner')}
+              </View>
+            )}
 
-            {/* Exercise Section */}
-            <View style={styles.exerciseSection}>
-              <Text style={styles.sectionTitle}>Exercise</Text>
-              <View style={styles.exerciseOverview}>
-                <View style={styles.exerciseOverviewContent}>
-                  <Text style={styles.exerciseSessionName}>{currentDay.exercise.exerciseName}</Text>
-                  <Text style={styles.exerciseSessionDuration}>
-                    {currentDay.exercise.totalSession}
-                  </Text>
-                  <Text style={styles.exerciseCalories}>
-                    {currentDay.exercise.caloriesBurned} calories to burn
-                  </Text>
+            {selectedView === 'exercise' && (
+              <View style={styles.exerciseSection}>
+                <Text style={styles.sectionTitle}>Exercise</Text>
+                <View style={styles.exerciseOverview}>
+                  <View style={styles.exerciseOverviewContent}>
+                    <Text style={styles.exerciseSessionName}>
+                      {currentDay.exercise.exerciseName}
+                    </Text>
+                    <Text style={styles.exerciseSessionDuration}>
+                      {currentDay.exercise.totalSession}
+                    </Text>
+                    <Text style={styles.exerciseCalories}>
+                      {currentDay.exercise.caloriesBurned} calories to burn
+                    </Text>
+                  </View>
+
+                  {/* Exercise Mark as Complete Button */}
+                  <TouchableOpacity
+                    style={[
+                      styles.exerciseCompletionButton,
+                      currentDay.exercise.isDone && styles.exerciseCompletionButtonCompleted,
+                      updatingExercise === `${selectedDay}-exercise` &&
+                        styles.exerciseCompletionButtonDisabled,
+                    ]}
+                    onPress={handleExerciseToggle}
+                    disabled={updatingExercise === `${selectedDay}-exercise`}>
+                    {updatingExercise === `${selectedDay}-exercise` ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={currentDay.exercise.isDone ? '#FFFFFF' : '#666666'}
+                      />
+                    ) : (
+                      <>
+                        <Ionicons
+                          name={currentDay.exercise.isDone ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={20}
+                          color={currentDay.exercise.isDone ? '#FFFFFF' : '#F59E0B'}
+                        />
+                        <Text
+                          style={[
+                            styles.exerciseCompletionButtonText,
+                            currentDay.exercise.isDone &&
+                              styles.exerciseCompletionButtonTextCompleted,
+                          ]}>
+                          {currentDay.exercise.isDone ? 'Completed' : 'Mark as Complete'}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
                 </View>
 
-                {/* Exercise Mark as Complete Button */}
-                <TouchableOpacity
-                  style={[
-                    styles.exerciseCompletionButton,
-                    currentDay.exercise.isDone && styles.exerciseCompletionButtonCompleted,
-                    updatingExercise === `${selectedDay}-exercise` &&
-                      styles.exerciseCompletionButtonDisabled,
-                  ]}
-                  onPress={handleExerciseToggle}
-                  disabled={updatingExercise === `${selectedDay}-exercise`}>
-                  {updatingExercise === `${selectedDay}-exercise` ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={currentDay.exercise.isDone ? '#FFFFFF' : '#666666'}
-                    />
-                  ) : (
-                    <>
-                      <Ionicons
-                        name={currentDay.exercise.isDone ? 'checkmark-circle' : 'ellipse-outline'}
-                        size={20}
-                        color={currentDay.exercise.isDone ? '#FFFFFF' : '#F59E0B'}
-                      />
-                      <Text
-                        style={[
-                          styles.exerciseCompletionButtonText,
-                          currentDay.exercise.isDone &&
-                            styles.exerciseCompletionButtonTextCompleted,
-                        ]}>
-                        {currentDay.exercise.isDone ? 'Completed' : 'Mark as Complete'}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                <Text style={styles.sectionTitle}>Exercises:</Text>
+                {currentDay.exercise.exercises.map((exercise, index) =>
+                  renderExerciseCard(exercise, index)
+                )}
+
+                <Text style={styles.sectionTitle}>Exercise Notes:</Text>
+                <TextInput
+                  style={styles.notesInput}
+                  placeholder="Add your exercise notes here..."
+                  placeholderTextColor="#999"
+                  value={getExerciseNotes()}
+                  onChangeText={setExerciseNotesForDay}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
               </View>
-
-              <Text style={styles.sectionTitle}>Exercises:</Text>
-              {currentDay.exercise.exercises.map((exercise, index) =>
-                renderExerciseCard(exercise, index)
-              )}
-
-              <Text style={styles.sectionTitle}>Exercise Notes:</Text>
-              <TextInput
-                style={styles.notesInput}
-                placeholder="Add your exercise notes here..."
-                placeholderTextColor="#999"
-                value={getExerciseNotes()}
-                onChangeText={setExerciseNotesForDay}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-            </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -1022,5 +1090,34 @@ const styles = StyleSheet.create({
   exerciseEquipment: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  // New toggle button styles
+  viewSelector: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 4,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  toggleButtonSelected: {
+    backgroundColor: '#8B0000',
+  },
+  toggleButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  toggleButtonTextSelected: {
+    color: '#FFFFFF',
   },
 });

@@ -13,6 +13,7 @@ export interface UserProfile {
   gender?: 'male' | 'female';
   activityLevel?: 'inactive' | 'somewhat active' | 'active' | 'very active';
   profilePicture?: string;
+  isPremium?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
