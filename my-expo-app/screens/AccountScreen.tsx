@@ -8,9 +8,11 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  SafeAreaView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getUserProfile, UserProfile } from '../services/profileService';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
@@ -76,79 +78,107 @@ export default function AccountScreen() {
   if (loading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#8B4A6B" />
+        <ActivityIndicator size="large" color="#6366F1" />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header dengan tombol settings yang redirect ke edit profile */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Account</Text>
-          <TouchableOpacity onPress={handleEditProfile} style={styles.settingsButton}>
-            <Ionicons name="settings-outline" size={24} color="#8B4A6B" />
-          </TouchableOpacity>
-        </View>
+        {/* Modern Header with Dark Gradient */}
+        <LinearGradient
+          colors={['#F8FAFC', '#E2E8F0', '#CBD5E1']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradientHeader}>
+          <SafeAreaView>
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>My Profile</Text>
+            </View>
 
-        {/* Profile Section - Hapus camera button */}
-        <View style={styles.profileSection}>
-          <View style={styles.profileImageContainer}>
-            <Image
-              source={
-                profile?.profilePicture
-                  ? { uri: profile.profilePicture }
-                  : require('../assets/istockphoto-1130884625-612x612.jpg') // Gunakan asset image
-              }
-              style={styles.profileImage}
-            />
-            {/* Camera button dihapus */}
-          </View>
+            {/* Profile Section with Modern Card */}
+            <View style={styles.profileSection}>
+              <View style={styles.profileCard}>
+                <View style={styles.profileImageContainer}>
+                  <Image
+                    source={
+                      profile?.profilePicture
+                        ? { uri: profile.profilePicture }
+                        : require('../assets/istockphoto-1130884625-612x612.jpg')
+                    }
+                    style={styles.profileImage}
+                  />
+                  <View style={styles.onlineIndicator} />
+                </View>
 
-          <Text style={styles.userName}>
-            {profile?.firstName || profile?.lastName
-              ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
-              : profile?.username || 'User'}
-          </Text>
-          <Text style={styles.userEmail}>{profile?.email}</Text>
-        </View>
+                <View style={styles.profileInfo}>
+                  <Text style={styles.userName}>
+                    {profile?.firstName || profile?.lastName
+                      ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
+                      : profile?.username || 'User'}
+                  </Text>
+                  <Text style={styles.userEmail}>{profile?.email}</Text>
 
-        {/* Profile Details */}
+                  {/* Quick Stats */}
+                  <View style={styles.quickStats}>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statNumber}>{profile?.weight || '--'}</Text>
+                      <Text style={styles.statLabel}>Weight (kg)</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                      <Text style={styles.statNumber}>{profile?.height || '--'}</Text>
+                      <Text style={styles.statLabel}>Height (cm)</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                      <Text style={styles.statNumber}>{profile?.age || '--'}</Text>
+                      <Text style={styles.statLabel}>Age</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
+
+        {/* Personal Information Table */}
         <View style={styles.detailsSection}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
 
-          <View style={styles.detailCard}>
-            <ProfileDetailItem
-              icon="person-outline"
+          {/* Table Format - Full Width */}
+          <View style={styles.infoTable}>
+          
+
+            {/* Table Rows */}
+            <TableRow
+              icon="person"
               label="Username"
               value={profile?.username || 'Not set'}
+              isFirst={true}
             />
-            <ProfileDetailItem
-              icon="mail-outline"
-              label="Email"
-              value={profile?.email || 'Not set'}
-            />
-            <ProfileDetailItem
-              icon="calendar-outline"
+            <TableRow icon="mail" label="Email" value={profile?.email || 'Not set'} />
+            <TableRow
+              icon="calendar"
               label="Age"
               value={profile?.age ? `${profile.age} years` : 'Not set'}
             />
-            <ProfileDetailItem
-              icon="fitness-outline"
+            <TableRow
+              icon="fitness"
               label="Weight"
               value={profile?.weight ? `${profile.weight} kg` : 'Not set'}
             />
-            <ProfileDetailItem
-              icon="resize-outline"
+            <TableRow
+              icon="resize"
               label="Height"
               value={profile?.height ? `${profile.height} cm` : 'Not set'}
             />
-            <ProfileDetailItem
-              icon="male-female-outline"
+            <TableRow
+              icon="male-female"
               label="Gender"
               value={
                 profile?.gender
@@ -156,8 +186,8 @@ export default function AccountScreen() {
                   : 'Not set'
               }
             />
-            <ProfileDetailItem
-              icon="walk-outline"
+            <TableRow
+              icon="walk"
               label="Activity Level"
               value={
                 profile?.activityLevel
@@ -169,46 +199,61 @@ export default function AccountScreen() {
           </View>
         </View>
 
-        {/* Action Buttons - Hapus edit profile button, hanya logout */}
+        {/* Action Buttons */}
         <View style={styles.actionSection}>
-          {/* Tombol Logout */}
+          {/* Edit Profile Button */}
+          <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
+            <View style={styles.editButtonGradient}>
+              <Ionicons name="create" size={20} color="#FFFFFF" />
+              <Text style={styles.editButtonText}>Edit Profile</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Logout Button */}
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color="#EF4444" />
             <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
-// Component untuk detail item
-const ProfileDetailItem = ({
+// Component untuk table row
+const TableRow = ({
   icon,
   label,
   value,
+  isFirst = false,
   isLast = false,
 }: {
   icon: string;
   label: string;
   value: string;
+  isFirst?: boolean;
   isLast?: boolean;
 }) => (
-  <View style={[styles.detailItem, !isLast && styles.detailItemBorder]}>
-    <View style={styles.detailLeft}>
-      <Ionicons name={icon as any} size={20} color="#6B7280" />
-      <Text style={styles.detailLabel}>{label}</Text>
+  <View style={[styles.tableRow, isFirst && styles.tableRowFirst, isLast && styles.tableRowLast]}>
+    <View style={styles.tableCell}>
+      <View style={styles.tableCellContent}>
+        <Ionicons name={icon as any} size={18} color="#374151" />
+        <Text style={styles.tableLabel}>{label}</Text>
+      </View>
     </View>
-    <Text style={styles.detailValue}>{value}</Text>
+    <View style={styles.tableCell}>
+      <Text style={styles.tableValue}>{value}</Text>
+    </View>
   </View>
 );
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FBF6',
+    backgroundColor: '#F8FAFC',
   },
   loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -220,122 +265,247 @@ const styles = StyleSheet.create({
   scrollContent: {
     flex: 1,
   },
+
+  // Modern Gradient Header
+  gradientHeader: {
+    paddingBottom: 30,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 20,
   },
   headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    letterSpacing: 0.5,
+  },
+  settingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  // Modern Profile Section
+  profileSection: {
+    paddingHorizontal: 20,
+    marginTop: -10,
+  },
+  profileCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  profileImageContainer: {
+    alignSelf: 'center',
+    marginBottom: 20,
+    position: 'relative',
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#E5E7EB',
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#10B981',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  profileInfo: {
+    alignItems: 'center',
+  },
+  userName: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1F2937',
-  },
-  settingsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  profileSection: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-  },
-  profileImageContainer: {
-    marginBottom: 16,
-    // Hapus position: 'relative' karena tidak ada camera button
-  },
-  profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#E5E7EB',
-  },
-  // Camera button styles dihapus
-  userName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#1F2937',
     marginBottom: 4,
+    textAlign: 'center',
   },
   userEmail: {
     fontSize: 16,
     color: '#6B7280',
+    marginBottom: 20,
+    textAlign: 'center',
   },
+
+  // Quick Stats
+  quickStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 16,
+  },
+
+  // Table Section
   detailsSection: {
     paddingHorizontal: 20,
+    paddingTop: 30,
     marginBottom: 30,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1F2937',
     marginBottom: 16,
   },
-  detailCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    elevation: 2,
+
+  // Modern Table Design
+  infoTable: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  detailItem: {
+  tableHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  detailItemBorder: {
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#E5E7EB',
   },
-  detailLeft: {
+  tableHeaderText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#374151',
+    textAlign: 'left',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+  },
+  tableRowFirst: {
+    // No additional styles needed
+  },
+  tableRowLast: {
+    borderBottomWidth: 0,
+  },
+  tableCell: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+  },
+  tableCellContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
-  detailLabel: {
-    marginLeft: 12,
-    fontSize: 16,
+  tableLabel: {
+    fontSize: 15,
     color: '#374151',
+    fontWeight: '500',
+    marginLeft: 10,
   },
-  detailValue: {
-    fontSize: 16,
+  tableValue: {
+    fontSize: 15,
     color: '#6B7280',
     fontWeight: '500',
+    textAlign: 'right',
   },
+
+  // Action Section
   actionSection: {
     paddingHorizontal: 20,
-    paddingBottom: 30, // Reduced padding since no more edit button
+    paddingBottom: 40,
+    gap: 16,
   },
-  // Edit profile button styles dihapus
+  editButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#1F2937',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  editButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    backgroundColor: '#6366F1',
+  },
+  editButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    paddingVertical: 16,
-    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 18,
+    borderWidth: 2,
     borderColor: '#FEE2E2',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   logoutButtonText: {
     color: '#EF4444',

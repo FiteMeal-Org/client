@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   TextInput,
+  SafeAreaView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
@@ -205,8 +206,12 @@ export default function ExercisePlansScreen() {
 
       const result = await response.json();
 
-      const ongoing = Array.isArray(result.data?.ongoing) ? result.data.ongoing.map(normalizeExercisePlanData) : [];
-      const upcoming = Array.isArray(result.data?.upcoming) ? result.data.upcoming.map(normalizeExercisePlanData) : [];
+      const ongoing = Array.isArray(result.data?.ongoing)
+        ? result.data.ongoing.map(normalizeExercisePlanData)
+        : [];
+      const upcoming = Array.isArray(result.data?.upcoming)
+        ? result.data.upcoming.map(normalizeExercisePlanData)
+        : [];
 
       setOngoingPlans(ongoing);
       setUpcomingPlans(upcoming);
@@ -249,7 +254,12 @@ export default function ExercisePlansScreen() {
     const noteKey = `${selectedPlan}-${selectedDay}`;
     const notes = exerciseNotes[noteKey] || currentExercise.exercise.notes || '';
 
-    await updateExerciseStatusLocal(selectedPlan, selectedDay, !safeGetExerciseProperty(currentExercise.exercise, 'isDone'), notes);
+    await updateExerciseStatusLocal(
+      selectedPlan,
+      selectedDay,
+      !safeGetExerciseProperty(currentExercise.exercise, 'isDone'),
+      notes
+    );
   };
 
   // Get notes for a specific exercise
@@ -292,18 +302,23 @@ export default function ExercisePlansScreen() {
           <TouchableOpacity
             style={[
               styles.exerciseCompleteButton,
-              safeGetExerciseProperty(exercise.exercise, 'isDone') && styles.exerciseCompleteButtonDone,
+              safeGetExerciseProperty(exercise.exercise, 'isDone') &&
+                styles.exerciseCompleteButtonDone,
               isUpdating && styles.exerciseCompleteButtonDisabled,
             ]}
             onPress={handleExerciseToggle}
             disabled={isUpdating}>
             {isUpdating ? (
-              <ActivityIndicator size="small" color={safeGetExerciseProperty(exercise.exercise, 'isDone') ? '#FFFFFF' : '#666666'} />
+              <ActivityIndicator
+                size="small"
+                color={safeGetExerciseProperty(exercise.exercise, 'isDone') ? '#FFFFFF' : '#666666'}
+              />
             ) : (
               <Text
                 style={[
                   styles.exerciseCompleteButtonText,
-                  safeGetExerciseProperty(exercise.exercise, 'isDone') && styles.exerciseCompleteButtonTextDone,
+                  safeGetExerciseProperty(exercise.exercise, 'isDone') &&
+                    styles.exerciseCompleteButtonTextDone,
                 ]}>
                 {safeGetExerciseProperty(exercise.exercise, 'isDone') ? '✓' : '○'}
               </Text>
@@ -328,10 +343,15 @@ export default function ExercisePlansScreen() {
           </View>
           <View style={styles.exerciseInfoItem}>
             <Text style={styles.exerciseInfoLabel}>Status</Text>
-            <Text style={[
-              styles.exerciseInfoValue,
-              { color: safeGetExerciseProperty(exercise.exercise, 'isDone') ? '#4CAF50' : '#FF5722' }
-            ]}>
+            <Text
+              style={[
+                styles.exerciseInfoValue,
+                {
+                  color: safeGetExerciseProperty(exercise.exercise, 'isDone')
+                    ? '#4CAF50'
+                    : '#FF5722',
+                },
+              ]}>
               {safeGetExerciseProperty(exercise.exercise, 'isDone') ? 'Completed' : 'Pending'}
             </Text>
           </View>
@@ -344,10 +364,15 @@ export default function ExercisePlansScreen() {
             <View key={index} style={styles.individualExerciseCard}>
               <View style={styles.exerciseHeader}>
                 <Text style={styles.individualExerciseName}>{individualExercise.name}</Text>
-                <View style={[
-                  styles.exerciseStatusBadge,
-                  { backgroundColor: safeGetExerciseProperty(exercise.exercise, 'isDone') ? '#4CAF50' : '#FFA726' }
-                ]}>
+                <View
+                  style={[
+                    styles.exerciseStatusBadge,
+                    {
+                      backgroundColor: safeGetExerciseProperty(exercise.exercise, 'isDone')
+                        ? '#4CAF50'
+                        : '#FFA726',
+                    },
+                  ]}>
                   <Text style={styles.exerciseStatusText}>
                     {safeGetExerciseProperty(exercise.exercise, 'isDone') ? '✓' : '○'}
                   </Text>
@@ -393,7 +418,7 @@ export default function ExercisePlansScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="dark" backgroundColor="#FFFFFF" />
 
       {/* Header */}
@@ -454,6 +479,11 @@ export default function ExercisePlansScreen() {
                 key={plan._id}
                 style={[styles.planCard, isSelected && styles.selectedPlanCard]}
                 onPress={() => handlePlanSelect(plan._id)}>
+                {isSelected && (
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusBadgeText}>Sedang Berjalan</Text>
+                  </View>
+                )}
                 <View style={styles.planCardContent}>
                   <Text style={[styles.planTitle, isSelected && styles.selectedPlanTitle]}>
                     {plan.name}
@@ -477,12 +507,6 @@ export default function ExercisePlansScreen() {
                     {plan.todoList.length} days program
                   </Text>
                 </View>
-
-                {isSelected && (
-                  <View style={styles.statusBadge}>
-                    <Text style={styles.statusBadgeText}>Sedang Berjalan</Text>
-                  </View>
-                )}
               </TouchableOpacity>
             );
           })}
@@ -528,7 +552,8 @@ export default function ExercisePlansScreen() {
             {currentExercise && (
               <>
                 <Text style={styles.sectionHeader}>
-                  Day {selectedDay} Exercise ({safeGetExerciseProperty(currentExercise.exercise, 'caloriesBurned')} calories)
+                  Day {selectedDay} Exercise (
+                  {safeGetExerciseProperty(currentExercise.exercise, 'caloriesBurned')} calories)
                 </Text>
 
                 {renderExerciseDetail(currentExercise)}
@@ -537,7 +562,7 @@ export default function ExercisePlansScreen() {
           </>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -680,6 +705,7 @@ const styles = StyleSheet.create({
   },
   planCardContent: {
     marginBottom: 8,
+    paddingRight: 65, // Add more right padding to avoid "Sedang Berjalan" badge overlap
   },
   planTitle: {
     fontSize: 18,
@@ -708,17 +734,19 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     position: 'absolute',
-    top: 20,
-    right: 20,
+    top: 8,
+    right: 8,
     backgroundColor: '#FF9800',
     borderRadius: 12,
     paddingVertical: 4,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
+    zIndex: 1,
   },
   statusBadgeText: {
-    fontSize: 12,
+    fontSize: 8,
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 
   // Day Cards

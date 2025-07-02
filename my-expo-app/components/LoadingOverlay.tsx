@@ -7,7 +7,10 @@ import {
   Animated,
   Dimensions,
   Modal,
+  Platform,
+  StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 
@@ -25,6 +28,7 @@ export default function LoadingOverlay({
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (visible) {
@@ -73,28 +77,28 @@ export default function LoadingOverlay({
     switch (type) {
       case 'generate':
         return {
-          color: '#8B0000',
+          color: '#1F2937',
           icon: '🔮',
           title: 'Generating Your Plan',
           subtitle: 'AI is creating personalized content...',
         };
       case 'upload':
         return {
-          color: '#059669',
+          color: '#374151',
           icon: '📸',
           title: 'Uploading Photo',
           subtitle: 'Processing your image...',
         };
       case 'create':
         return {
-          color: '#7C3AED',
+          color: '#4B5563',
           icon: '✨',
           title: 'Creating Plan',
           subtitle: 'Setting up your personalized plan...',
         };
       default:
         return {
-          color: '#6B7280',
+          color: '#84CC16',
           icon: '⏳',
           title: 'Loading',
           subtitle: message,
@@ -112,62 +116,64 @@ export default function LoadingOverlay({
   if (!visible) return null;
 
   return (
-    <Modal transparent visible={visible} statusBarTranslucent>
+    <Modal transparent visible={visible} statusBarTranslucent={true} animationType="none">
       <View style={styles.overlay}>
-        <Animated.View
-          style={[
-            styles.container,
-            {
-              opacity: fadeAnim,
-              transform: [{ scale: scaleAnim }],
-            },
-          ]}>
-          {/* Loading Ring */}
-          <View style={styles.loadingRingContainer}>
-            <Animated.View
-              style={[
-                styles.loadingRing,
-                {
-                  borderTopColor: config.color,
-                  transform: [{ rotate: spin }],
-                },
-              ]}
-            />
-            <View style={[styles.innerCircle, { backgroundColor: config.color + '20' }]}>
-              <Text style={styles.loadingIcon}>{config.icon}</Text>
+        <View style={[styles.safeAreaContainer, { paddingTop: insets.top }]}>
+          <Animated.View
+            style={[
+              styles.container,
+              {
+                opacity: fadeAnim,
+                transform: [{ scale: scaleAnim }],
+              },
+            ]}>
+            {/* Loading Ring */}
+            <View style={styles.loadingRingContainer}>
+              <Animated.View
+                style={[
+                  styles.loadingRing,
+                  {
+                    borderTopColor: config.color,
+                    transform: [{ rotate: spin }],
+                  },
+                ]}
+              />
+              <View style={[styles.innerCircle, { backgroundColor: config.color + '20' }]}>
+                <Text style={styles.loadingIcon}>{config.icon}</Text>
+              </View>
             </View>
-          </View>
 
-          {/* Content */}
-          <View style={styles.content}>
-            <Text style={[styles.title, { color: config.color }]}>{config.title}</Text>
-            <Text style={styles.subtitle}>{config.subtitle}</Text>
+            {/* Content */}
+            <View style={styles.content}>
+              <Text style={[styles.title, { color: config.color }]}>{config.title}</Text>
+              <Text style={styles.subtitle}>{config.subtitle}</Text>
 
-            {/* Dots animation */}
-            <View style={styles.dotsContainer}>
-              {[0, 1, 2].map((index) => (
-                <Animated.View
-                  key={index}
-                  style={[
-                    styles.dot,
-                    { backgroundColor: config.color },
-                    {
-                      opacity: rotateAnim.interpolate({
-                        inputRange: [0, 0.33, 0.66, 1],
-                        outputRange:
-                          index === 0
-                            ? [1, 0.3, 0.3, 1]
-                            : index === 1
-                              ? [0.3, 1, 0.3, 0.3]
-                              : [0.3, 0.3, 1, 0.3],
-                      }),
-                    },
-                  ]}
-                />
-              ))}
+              {/* Dots animation */}
+              <View style={styles.dotsContainer}>
+                {[0, 1, 2].map((index) => (
+                  <Animated.View
+                    key={index}
+                    style={[
+                      styles.dot,
+                      { backgroundColor: config.color },
+                      {
+                        opacity: rotateAnim.interpolate({
+                          inputRange: [0, 0.33, 0.66, 1],
+                          outputRange:
+                            index === 0
+                              ? [1, 0.3, 0.3, 1]
+                              : index === 1
+                                ? [0.3, 1, 0.3, 0.3]
+                                : [0.3, 0.3, 1, 0.3],
+                        }),
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        </View>
       </View>
     </Modal>
   );
@@ -179,6 +185,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  safeAreaContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
   },
   container: {
     backgroundColor: 'white',
@@ -232,7 +244,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#84CC16',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 20,

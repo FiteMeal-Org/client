@@ -28,12 +28,12 @@ export default function BerandaNavigator() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#8B4A6B',
-        tabBarInactiveTintColor: '#666',
+        tabBarActiveTintColor: '#84CC16',
+        tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: {
-          backgroundColor: 'white',
+          backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
-          borderTopColor: '#E0E0E0',
+          borderTopColor: '#F3F4F6',
           paddingBottom: 10,
           paddingTop: 5,
           height: 65,
@@ -68,7 +68,7 @@ export default function BerandaNavigator() {
                 width: 40,
                 height: 40,
                 borderRadius: 20,
-                backgroundColor: focused ? '#8B4A6B' : '#F3F4F6',
+                backgroundColor: focused ? '#84CC16' : '#F3F4F6',
                 justifyContent: 'center',
                 alignItems: 'center',
                 marginBottom: 4,
@@ -76,7 +76,7 @@ export default function BerandaNavigator() {
               <Ionicons
                 name={focused ? 'add' : 'add-outline'}
                 size={24}
-                color={focused ? 'white' : '#8B4A6B'}
+                color={focused ? 'white' : '#84CC16'}
               />
             </View>
           ),

@@ -11,11 +11,13 @@ import {
   Dimensions,
   TextInput,
   Image,
+  SafeAreaView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { API_CONFIG } from '../config/api';
+import { getUserProfile } from '../services/profileService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BASE_URL = 'https://api-fitemeal.vercel.app';
@@ -108,6 +110,7 @@ export default function PlansScreen() {
   const [alternatePlans, setAlternatePlans] = useState<{ [key: string]: PlanData[] }>({});
   const [alternateLoading, setAlternateLoading] = useState(false);
   const [alternateGenerated, setAlternateGenerated] = useState<{ [key: string]: boolean }>({});
+  const [user, setUser] = useState<any>(null);
 
   // Update meal completion status
   const updateMealStatus = useCallback(
@@ -294,182 +297,218 @@ export default function PlansScreen() {
   }, [selectedPlan]);
 
   // Fetch uploaded meal plans - filtered by selected plan
-  const fetchUploadedPlans = useCallback(async (planId?: string) => {
-    try {
-      setUploadedPlansLoading(true);
-      const token = await SecureStore.getItemAsync('access_token');
+  const fetchUploadedPlans = useCallback(
+    async (planId?: string) => {
+      try {
+        setUploadedPlansLoading(true);
+        const token = await SecureStore.getItemAsync('access_token');
 
-      if (!token) {
-        console.log('❌ No access token found for uploaded plans');
-        return;
+        if (!token) {
+          console.log('❌ No access token found for uploaded plans');
+          return;
+        }
+
+        const targetPlanId = planId || selectedPlan;
+        console.log('🔍 Fetching uploaded plans for planId:', targetPlanId);
+
+        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.UPLOAD_GET}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('📄 Uploaded Plans API Response:', JSON.stringify(result, null, 2));
+
+        const uploadedData = Array.isArray(result.data) ? result.data : [];
+
+        // Filter uploaded plans by current selected plan ID
+        const filteredUploadedPlans = uploadedData.filter(
+          (plan: any) => plan.plansId === targetPlanId || plan.planId === targetPlanId
+        );
+
+        console.log('🔍 Total uploaded plans from API:', uploadedData.length);
+        console.log('🔍 Filtered uploaded plans for current plan:', filteredUploadedPlans.length);
+        console.log(
+          '🔍 Plan IDs in uploaded data:',
+          uploadedData.map((p: any) => ({ id: p._id, plansId: p.plansId, planId: p.planId }))
+        );
+
+        setUploadedPlans(filteredUploadedPlans);
+
+        console.log(
+          '✅ Uploaded plans loaded for plan:',
+          targetPlanId,
+          '- Count:',
+          filteredUploadedPlans.length
+        );
+      } catch (error) {
+        console.error('❌ Error fetching uploaded plans:', error);
+        Alert.alert('Error', 'Failed to fetch uploaded meal plans');
+      } finally {
+        setUploadedPlansLoading(false);
       }
-
-      const targetPlanId = planId || selectedPlan;
-      console.log('🔍 Fetching uploaded plans for planId:', targetPlanId);
-      
-      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.UPLOAD_GET}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('📄 Uploaded Plans API Response:', JSON.stringify(result, null, 2));
-
-      const uploadedData = Array.isArray(result.data) ? result.data : [];
-      
-      // Filter uploaded plans by current selected plan ID
-      const filteredUploadedPlans = uploadedData.filter((plan: any) => 
-        plan.plansId === targetPlanId || plan.planId === targetPlanId
-      );
-
-      console.log('🔍 Total uploaded plans from API:', uploadedData.length);
-      console.log('🔍 Filtered uploaded plans for current plan:', filteredUploadedPlans.length);
-      console.log('🔍 Plan IDs in uploaded data:', uploadedData.map((p: any) => ({ id: p._id, plansId: p.plansId, planId: p.planId })));
-
-      setUploadedPlans(filteredUploadedPlans);
-
-      console.log('✅ Uploaded plans loaded for plan:', targetPlanId, '- Count:', filteredUploadedPlans.length);
-    } catch (error) {
-      console.error('❌ Error fetching uploaded plans:', error);
-      Alert.alert('Error', 'Failed to fetch uploaded meal plans');
-    } finally {
-      setUploadedPlansLoading(false);
-    }
-  }, [selectedPlan]);
+    },
+    [selectedPlan]
+  );
 
   // Save alternate plans to storage
-  const saveAlternatePlansToStorage = useCallback(async (plans: { [key: string]: PlanData[] }, generated: { [key: string]: boolean }) => {
-    try {
-      await SecureStore.setItemAsync('alternate_plans', JSON.stringify(plans));
-      await SecureStore.setItemAsync('alternate_generated', JSON.stringify(generated));
-      console.log('✅ Saved alternate plans to storage');
-    } catch (error) {
-      console.error('❌ Error saving alternate plans to storage:', error);
-    }
-  }, []);
+  const saveAlternatePlansToStorage = useCallback(
+    async (plans: { [key: string]: PlanData[] }, generated: { [key: string]: boolean }) => {
+      try {
+        await SecureStore.setItemAsync('alternate_plans', JSON.stringify(plans));
+        await SecureStore.setItemAsync('alternate_generated', JSON.stringify(generated));
+        console.log('✅ Saved alternate plans to storage');
+      } catch (error) {
+        console.error('❌ Error saving alternate plans to storage:', error);
+      }
+    },
+    []
+  );
 
   // Fetch alternate meal plans (grocery list)
-  const generateAlternatePlan = useCallback(async (planId: string) => {
-    try {
-      setAlternateLoading(true);
-      const token = await SecureStore.getItemAsync('access_token');
+  const generateAlternatePlan = useCallback(
+    async (planId: string) => {
+      try {
+        setAlternateLoading(true);
+        const token = await SecureStore.getItemAsync('access_token');
 
-      if (!token) {
-        Alert.alert('Error', 'No access token found');
-        return;
-      }
+        if (!token) {
+          Alert.alert('Error', 'No access token found');
+          return;
+        }
 
-      // Try different request body formats
-      const requestBody1 = { planId: planId };
-      const requestBody2 = { id: planId };
-      
-      console.log('🔍 Generating alternate plan for planId:', planId);
-      console.log('🔍 Plan object from current plans:', currentPlan);
-      console.log('📡 Trying request body format 1:', requestBody1);
-      
-      let response = await fetch(`${BASE_URL}/api/grocerylist`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(requestBody1),
-      });
+        // Try different request body formats
+        const requestBody1 = { planId: planId };
+        const requestBody2 = { id: planId };
 
-      console.log('📡 Response status for format 1:', response.status);
+        console.log('🔍 Generating alternate plan for planId:', planId);
+        console.log('🔍 Plan object from current plans:', currentPlan);
+        console.log('📡 Trying request body format 1:', requestBody1);
 
-      // If first format fails with 500, try second format
-      if (!response.ok && response.status === 500) {
-        console.log('📡 Trying request body format 2:', requestBody2);
-        response = await fetch(`${BASE_URL}/api/grocerylist`, {
+        let response = await fetch(`${BASE_URL}/api/grocerylist`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(requestBody2),
+          body: JSON.stringify(requestBody1),
         });
-        console.log('📡 Response status for format 2:', response.status);
-      }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ API Error Response:', errorText);
-        console.error('❌ API Error Status:', response.status);
-        console.error('❌ API Error Headers:', response.headers);
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
+        console.log('📡 Response status for format 1:', response.status);
 
-      const result = await response.json();
-      console.log('📄 Alternate Plan API Response:', JSON.stringify(result, null, 2));
+        // If first format fails with 500, try second format
+        if (!response.ok && response.status === 500) {
+          console.log('📡 Trying request body format 2:', requestBody2);
+          response = await fetch(`${BASE_URL}/api/grocerylist`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(requestBody2),
+          });
+          console.log('📡 Response status for format 2:', response.status);
+        }
 
-      // Handle response structure - API returns { result: { ... } }
-      const alternateData = result.result || result.data || result;
-      
-      if (alternateData && alternateData.todoList && Array.isArray(alternateData.todoList)) {
-        // Convert the API response to match our PlanData interface
-        const planStructure: PlanData = {
-          _id: alternateData._id || planId,
-          name: alternateData.name || 'Alternate Meal Plan',
-          description: 'Generated alternate meal plan based on grocery list',
-          duration: alternateData.todoList.length,
-          startDate: alternateData.startDate || new Date().toISOString(),
-          endDate: alternateData.endDate || new Date(Date.now() + alternateData.todoList.length * 24 * 60 * 60 * 1000).toISOString(),
-          todoList: alternateData.todoList
-        };
-        
-        const newAlternatePlans = {
-          ...alternatePlans,
-          [planId]: [planStructure]
-        };
-        const newAlternateGenerated = {
-          ...alternateGenerated,
-          [planId]: true
-        };
-        
-        setAlternatePlans(newAlternatePlans);
-        setAlternateGenerated(newAlternateGenerated);
-        
-        // Save to storage for persistence
-        await saveAlternatePlansToStorage(newAlternatePlans, newAlternateGenerated);
-        
-        console.log('✅ Alternate plan generated successfully:', planStructure.name);
-      } else {
-        console.log('❌ Invalid alternate plan data structure:', alternateData);
-        Alert.alert('Error', 'Invalid response structure from server');
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ API Error Response:', errorText);
+          console.error('❌ API Error Status:', response.status);
+          console.error('❌ API Error Headers:', response.headers);
+          throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('📄 Alternate Plan API Response:', JSON.stringify(result, null, 2));
+
+        // Handle response structure - API returns { result: { ... } }
+        const alternateData = result.result || result.data || result;
+
+        if (alternateData && alternateData.todoList && Array.isArray(alternateData.todoList)) {
+          // Convert the API response to match our PlanData interface
+          const planStructure: PlanData = {
+            _id: alternateData._id || planId,
+            name: alternateData.name || 'Alternate Meal Plan',
+            description: 'Generated alternate meal plan based on grocery list',
+            duration: alternateData.todoList.length,
+            startDate: alternateData.startDate || new Date().toISOString(),
+            endDate:
+              alternateData.endDate ||
+              new Date(
+                Date.now() + alternateData.todoList.length * 24 * 60 * 60 * 1000
+              ).toISOString(),
+            todoList: alternateData.todoList,
+          };
+
+          const newAlternatePlans = {
+            ...alternatePlans,
+            [planId]: [planStructure],
+          };
+          const newAlternateGenerated = {
+            ...alternateGenerated,
+            [planId]: true,
+          };
+
+          setAlternatePlans(newAlternatePlans);
+          setAlternateGenerated(newAlternateGenerated);
+
+          // Save to storage for persistence
+          await saveAlternatePlansToStorage(newAlternatePlans, newAlternateGenerated);
+
+          console.log('✅ Alternate plan generated successfully:', planStructure.name);
+        } else {
+          console.log('❌ Invalid alternate plan data structure:', alternateData);
+          Alert.alert('Error', 'Invalid response structure from server');
+        }
+      } catch (error) {
+        console.error('❌ Error generating alternate plan:', error);
+        const errorMessage =
+          error instanceof Error ? error.message : 'Failed to generate alternate meal plan';
+
+        // Show detailed error to user
+        Alert.alert(
+          'Error Generating Alternate Plan',
+          `${errorMessage}\n\nThis might be due to:\n• Server is temporarily unavailable\n• Invalid plan data\n• Network connection issues\n\nPlease try again later.`,
+          [
+            { text: 'OK', style: 'default' },
+            {
+              text: 'Retry',
+              onPress: () => generateAlternatePlan(planId),
+              style: 'default',
+            },
+          ]
+        );
+      } finally {
+        setAlternateLoading(false);
       }
-    } catch (error) {
-      console.error('❌ Error generating alternate plan:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate alternate meal plan';
-      
-      // Show detailed error to user
-      Alert.alert(
-        'Error Generating Alternate Plan', 
-        `${errorMessage}\n\nThis might be due to:\n• Server is temporarily unavailable\n• Invalid plan data\n• Network connection issues\n\nPlease try again later.`,
-        [
-          { text: 'OK', style: 'default' },
-          { 
-            text: 'Retry', 
-            onPress: () => generateAlternatePlan(planId),
-            style: 'default'
-          }
-        ]
-      );
-    } finally {
-      setAlternateLoading(false);
-    }
-  }, [alternatePlans, alternateGenerated, saveAlternatePlansToStorage]);
+    },
+    [alternatePlans, alternateGenerated, saveAlternatePlansToStorage]
+  );
 
   useEffect(() => {
     fetchMealPlans();
     loadPersistedAlternatePlans(); // Load persisted alternate plans
+
+    // Load user profile to check premium status
+    const loadUserData = async () => {
+      try {
+        const userData = await getUserProfile();
+        setUser(userData);
+        console.log('✅ User profile loaded, isPremium:', userData?.isPremium);
+      } catch (error) {
+        console.error('❌ Error loading user profile:', error);
+        setUser(null);
+      }
+    };
+
+    loadUserData();
   }, [fetchMealPlans]);
 
   // Load persisted alternate plans from storage
@@ -477,17 +516,25 @@ export default function PlansScreen() {
     try {
       const storedAlternatePlans = await SecureStore.getItemAsync('alternate_plans');
       const storedAlternateGenerated = await SecureStore.getItemAsync('alternate_generated');
-      
+
       if (storedAlternatePlans) {
         const parsedPlans = JSON.parse(storedAlternatePlans);
         setAlternatePlans(parsedPlans);
-        console.log('✅ Loaded persisted alternate plans:', Object.keys(parsedPlans).length, 'plans');
+        console.log(
+          '✅ Loaded persisted alternate plans:',
+          Object.keys(parsedPlans).length,
+          'plans'
+        );
       }
-      
+
       if (storedAlternateGenerated) {
         const parsedGenerated = JSON.parse(storedAlternateGenerated);
         setAlternateGenerated(parsedGenerated);
-        console.log('✅ Loaded persisted alternate generated state:', Object.keys(parsedGenerated).length, 'entries');
+        console.log(
+          '✅ Loaded persisted alternate generated state:',
+          Object.keys(parsedGenerated).length,
+          'entries'
+        );
       }
     } catch (error) {
       console.error('❌ Error loading persisted alternate plans:', error);
@@ -510,6 +557,27 @@ export default function PlansScreen() {
     setRefreshing(true);
     fetchMealPlans();
   }, [fetchMealPlans]);
+
+  // Handle premium feature access check
+  const handlePremiumFeatureAccess = (featureName: string, callback: () => void) => {
+    if (!user?.isPremium) {
+      Alert.alert(
+        'Premium Feature',
+        `${featureName} is a premium feature. Upgrade to access this functionality.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Go Premium',
+            onPress: () => navigation.navigate('Premium' as never),
+          },
+        ]
+      );
+      return;
+    }
+
+    // User is premium, proceed with callback
+    callback();
+  };
 
   const currentPlan = plans.find((plan) => plan._id === selectedPlan);
   const currentDay = currentPlan?.todoList.find((day) => day.day === selectedDay);
@@ -739,7 +807,7 @@ export default function PlansScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="dark" backgroundColor="#FFFFFF" />
 
       {/* Header */}
@@ -808,6 +876,11 @@ export default function PlansScreen() {
                       : upcomingPlans.length - 1) && styles.lastPlanCard,
                 ]}
                 onPress={() => handlePlanSelect(plan._id)}>
+                {isSelected && (
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusBadgeText}>Active</Text>
+                  </View>
+                )}
                 <View style={styles.planCardContent}>
                   <Text style={[styles.planTitle, isSelected && styles.selectedPlanTitle]}>
                     {plan.name}
@@ -828,12 +901,6 @@ export default function PlansScreen() {
                   <Text style={[styles.planDuration, isSelected && styles.selectedPlanDuration]}>
                     {plan.todoList.length} days
                   </Text>
-
-                  {isSelected && (
-                    <View style={styles.statusBadge}>
-                      <Text style={styles.statusBadgeText}>Active</Text>
-                    </View>
-                  )}
                 </View>
               </TouchableOpacity>
             );
@@ -969,17 +1036,18 @@ export default function PlansScreen() {
         {selectedPlan && viewMode === 'alternate' && (
           <View style={styles.alternateContainer}>
             <Text style={styles.sectionHeader}>Alternate Meal Options</Text>
-            <Text style={styles.planIdDebug}>
-              Plan: {currentPlan?.name || 'Unknown Plan'} (ID: {selectedPlan})
-            </Text>
 
             {/* Generate Alternate Plan Button - Only show if not generated yet */}
             {!alternateGenerated[selectedPlan] && (
               <TouchableOpacity
                 style={styles.generateAlternateButton}
-                onPress={() => generateAlternatePlan(selectedPlan)}
+                onPress={() =>
+                  handlePremiumFeatureAccess('Generate Alternate Meal Plan', () =>
+                    generateAlternatePlan(selectedPlan)
+                  )
+                }
                 disabled={alternateLoading}>
-                <Text style={styles.generateAlternateIcon}>🛒</Text>
+                <Text style={styles.generateAlternateIcon}>⇄</Text>
                 <Text style={styles.generateAlternateTitle}>
                   {alternateLoading ? 'Generating...' : 'Generate Alternate Meal Plan'}
                 </Text>
@@ -993,98 +1061,123 @@ export default function PlansScreen() {
             )}
 
             {/* Alternate Plan Display - Similar to Original Mode */}
-            {alternateGenerated[selectedPlan] && alternatePlans[selectedPlan] && alternatePlans[selectedPlan].length > 0 && (
-              <>
-                {/* Select Day Section for Alternate Plans */}
-                <Text style={styles.sectionHeader}>Select Day</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.dayScrollContent}>
-                  {alternatePlans[selectedPlan][0]?.todoList.map((day) => {
-                    const dayDate = new Date(day.date);
-                    const isSelected = selectedDay === day.day;
+            {alternateGenerated[selectedPlan] &&
+              alternatePlans[selectedPlan] &&
+              alternatePlans[selectedPlan].length > 0 && (
+                <>
+                  {/* Select Day Section for Alternate Plans */}
+                  <Text style={styles.sectionHeader}>Select Day</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.dayScrollContent}>
+                    {alternatePlans[selectedPlan][0]?.todoList.map((day) => {
+                      const dayDate = new Date(day.date);
+                      const isSelected = selectedDay === day.day;
 
-                    return (
+                      return (
+                        <TouchableOpacity
+                          key={day.day}
+                          style={[styles.dayCard, isSelected && styles.selectedDayCard]}
+                          onPress={() => setSelectedDay(day.day)}>
+                          <Text style={[styles.dayTitle, isSelected && styles.selectedDayTitle]}>
+                            Day {day.day}
+                          </Text>
+                          <Text style={[styles.dayDate, isSelected && styles.selectedDayDate]}>
+                            {dayDate.toLocaleDateString('id-ID', {
+                              weekday: 'long',
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric',
+                            })}
+                          </Text>
+                          <Text
+                            style={[styles.dayCalories, isSelected && styles.selectedDayCalories]}>
+                            {day.dailyCalories} cal
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+
+                  {/* Day Meals Section for Alternate Plans */}
+                  {alternatePlans[selectedPlan][0]?.todoList.find(
+                    (day) => day.day === selectedDay
+                  ) && (
+                    <>
+                      <Text style={styles.sectionHeader}>
+                        Day {selectedDay} Alternate Meals (
+                        {
+                          alternatePlans[selectedPlan][0].todoList.find(
+                            (day) => day.day === selectedDay
+                          )?.dailyCalories
+                        }{' '}
+                        calories)
+                      </Text>
+
+                      {/* Breakfast */}
+                      {alternatePlans[selectedPlan][0].todoList.find(
+                        (day) => day.day === selectedDay
+                      )?.breakfast &&
+                        renderMealDetail(
+                          alternatePlans[selectedPlan][0].todoList.find(
+                            (day) => day.day === selectedDay
+                          )!.breakfast,
+                          'breakfast'
+                        )}
+
+                      {/* Lunch */}
+                      {alternatePlans[selectedPlan][0].todoList.find(
+                        (day) => day.day === selectedDay
+                      )?.lunch &&
+                        renderMealDetail(
+                          alternatePlans[selectedPlan][0].todoList.find(
+                            (day) => day.day === selectedDay
+                          )!.lunch,
+                          'lunch'
+                        )}
+
+                      {/* Dinner */}
+                      {alternatePlans[selectedPlan][0].todoList.find(
+                        (day) => day.day === selectedDay
+                      )?.dinner &&
+                        renderMealDetail(
+                          alternatePlans[selectedPlan][0].todoList.find(
+                            (day) => day.day === selectedDay
+                          )!.dinner,
+                          'dinner'
+                        )}
+
+                      {/* Regenerate Button */}
                       <TouchableOpacity
-                        key={day.day}
-                        style={[styles.dayCard, isSelected && styles.selectedDayCard]}
-                        onPress={() => setSelectedDay(day.day)}>
-                        <Text style={[styles.dayTitle, isSelected && styles.selectedDayTitle]}>
-                          Day {day.day}
-                        </Text>
-                        <Text style={[styles.dayDate, isSelected && styles.selectedDayDate]}>
-                          {dayDate.toLocaleDateString('id-ID', {
-                            weekday: 'long',
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                          })}
-                        </Text>
-                        <Text style={[styles.dayCalories, isSelected && styles.selectedDayCalories]}>
-                          {day.dailyCalories} cal
+                        style={styles.regenerateButton}
+                        onPress={async () => {
+                          const newAlternateGenerated = {
+                            ...alternateGenerated,
+                            [selectedPlan]: false,
+                          };
+                          const newAlternatePlans = {
+                            ...alternatePlans,
+                            [selectedPlan]: [],
+                          };
+
+                          setAlternateGenerated(newAlternateGenerated);
+                          setAlternatePlans(newAlternatePlans);
+
+                          // Update storage
+                          await saveAlternatePlansToStorage(
+                            newAlternatePlans,
+                            newAlternateGenerated
+                          );
+                        }}>
+                        <Text style={styles.regenerateButtonText}>
+                          🔄 Generate New Alternate Plan
                         </Text>
                       </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-
-                {/* Day Meals Section for Alternate Plans */}
-                {alternatePlans[selectedPlan][0]?.todoList.find(day => day.day === selectedDay) && (
-                  <>
-                    <Text style={styles.sectionHeader}>
-                      Day {selectedDay} Alternate Meals ({alternatePlans[selectedPlan][0].todoList.find(day => day.day === selectedDay)?.dailyCalories} calories)
-                    </Text>
-
-                    {/* Breakfast */}
-                    {alternatePlans[selectedPlan][0].todoList.find(day => day.day === selectedDay)?.breakfast && 
-                      renderMealDetail(
-                        alternatePlans[selectedPlan][0].todoList.find(day => day.day === selectedDay)!.breakfast, 
-                        'breakfast'
-                      )
-                    }
-
-                    {/* Lunch */}
-                    {alternatePlans[selectedPlan][0].todoList.find(day => day.day === selectedDay)?.lunch && 
-                      renderMealDetail(
-                        alternatePlans[selectedPlan][0].todoList.find(day => day.day === selectedDay)!.lunch, 
-                        'lunch'
-                      )
-                    }
-
-                    {/* Dinner */}
-                    {alternatePlans[selectedPlan][0].todoList.find(day => day.day === selectedDay)?.dinner && 
-                      renderMealDetail(
-                        alternatePlans[selectedPlan][0].todoList.find(day => day.day === selectedDay)!.dinner, 
-                        'dinner'
-                      )
-                    }
-
-                    {/* Regenerate Button */}
-                    <TouchableOpacity
-                      style={styles.regenerateButton}
-                      onPress={async () => {
-                        const newAlternateGenerated = {
-                          ...alternateGenerated,
-                          [selectedPlan]: false
-                        };
-                        const newAlternatePlans = {
-                          ...alternatePlans,
-                          [selectedPlan]: []
-                        };
-                        
-                        setAlternateGenerated(newAlternateGenerated);
-                        setAlternatePlans(newAlternatePlans);
-                        
-                        // Update storage
-                        await saveAlternatePlansToStorage(newAlternatePlans, newAlternateGenerated);
-                      }}>
-                      <Text style={styles.regenerateButtonText}>🔄 Generate New Alternate Plan</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </>
-            )}
+                    </>
+                  )}
+                </>
+              )}
           </View>
         )}
 
@@ -1092,19 +1185,18 @@ export default function PlansScreen() {
         {selectedPlan && viewMode === 'upload' && (
           <View style={styles.uploadContainer}>
             <Text style={styles.sectionHeader}>Generated Meal Plans</Text>
-            <Text style={styles.planIdDebug}>
-              Plan: {currentPlan?.name || 'Unknown Plan'} (ID: {selectedPlan})
-            </Text>
 
             {/* Upload New Photo Button - Only show if no uploaded plans */}
             {!uploadedPlansLoading && uploadedPlans.length === 0 && (
               <TouchableOpacity
                 style={styles.uploadButton}
                 onPress={() =>
-                  (navigation as any).navigate('UploadImageScreen', {
-                    planId: selectedPlan,
-                    plansId: selectedPlan,
-                    planName: currentPlan?.name || 'Meal Plan',
+                  handlePremiumFeatureAccess('Upload Meal Photo', () => {
+                    (navigation as any).navigate('UploadImageScreen', {
+                      planId: selectedPlan,
+                      plansId: selectedPlan,
+                      planName: currentPlan?.name || 'Meal Plan',
+                    });
                   })
                 }>
                 <Text style={styles.uploadIcon}>📷</Text>
@@ -1230,7 +1322,7 @@ export default function PlansScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -1364,6 +1456,7 @@ const styles = StyleSheet.create({
   },
   planCardContent: {
     marginBottom: 8,
+    paddingRight: 50, // Add right padding to avoid badge overlap
   },
   planTitle: {
     fontSize: 18,
@@ -1411,17 +1504,19 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     position: 'absolute',
-    top: 20,
-    right: 20,
+    top: 10,
+    right: 10,
     backgroundColor: '#4CAF50',
     borderRadius: 12,
     paddingVertical: 4,
     paddingHorizontal: 12,
+    zIndex: 1,
   },
   statusBadgeText: {
-    fontSize: 12,
+    fontSize: 9,
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 
   // Day Cards

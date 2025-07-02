@@ -8,6 +8,8 @@ import {
   Image,
   Animated,
   Dimensions,
+  SafeAreaView,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -102,35 +104,8 @@ export default function HomeScreen() {
 
   // Handle premium feature press
   const handlePremiumFeaturePress = (featureName: string) => {
-    if (!user?.isPremium) {
-      import('react-native').then(({ Alert }) => {
-        Alert.alert(
-          'Premium Feature',
-          `${featureName} is a premium feature. Upgrade to access this functionality.`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Go Premium',
-              onPress: () => navigation.navigate('Premium' as never),
-            },
-          ]
-        );
-      });
-      return;
-    }
-
-    // Handle navigation for premium users with profile validation
-    if (featureName === 'Exercise Plan') {
-      // Validate profile first, then navigate
-      validateAndNavigate(() => {
-        (navigation as any).navigate('BerandaNavigator', { screen: 'Add' });
-      });
-    } else if (featureName === 'Upload Photo') {
-      // Validate profile first, then navigate to upload
-      validateAndNavigate(() => {
-        navigation.navigate('UploadImage' as never);
-      });
-    }
+    // Always navigate to Premium screen for non-premium users
+    navigation.navigate('Premium' as never);
   };
 
   // Check meal plan status and calculate calories
@@ -589,8 +564,15 @@ export default function HomeScreen() {
       // If user has exercise plan, navigate to Exercise Plans screen
       (navigation as any).navigate('ExercisePlans');
     } else {
-      // Check if user is premium before allowing access
-      handlePremiumFeaturePress('Exercise Plan');
+      // Always navigate to Premium screen for non-premium users
+      if (!user?.isPremium) {
+        navigation.navigate('Premium' as never);
+      } else {
+        // For premium users, validate profile first
+        validateAndNavigate(() => {
+          (navigation as any).navigate('AddExercise');
+        });
+      }
     }
   };
 
@@ -796,23 +778,23 @@ export default function HomeScreen() {
   const bannerImages = [
     {
       uri: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=400&h=200&fit=crop',
-      title: 'Healthy Living Starts Here',
-      subtitle: 'Discover nutritious meals & fitness plans',
+      title: 'Go Premium Today!',
+      subtitle: 'Unlock all features & advanced plans',
     },
     {
       uri: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=200&fit=crop',
-      title: 'Fresh & Nutritious',
-      subtitle: 'Organic ingredients for better health',
+      title: 'Premium Nutrition',
+      subtitle: 'Exclusive meal plans & recipes',
     },
     {
       uri: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=200&fit=crop',
-      title: 'Meal Planning Made Easy',
-      subtitle: 'Customize your perfect diet plan',
+      title: 'Elite Fitness Plans',
+      subtitle: 'Personal trainer-level workouts',
     },
   ];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -837,7 +819,17 @@ export default function HomeScreen() {
 
         {/* Banner with Swipe Support - DISABLED */}
         <View style={styles.bannerSection}>
-          <View style={styles.bannerContainer}>
+          <TouchableOpacity
+            style={styles.bannerContainer}
+            onPress={() => {
+              try {
+                navigation.navigate('Premium' as never);
+              } catch (error) {
+                console.log('Navigation error:', error);
+                Alert.alert('Notice', 'Premium feature coming soon!');
+              }
+            }}
+            activeOpacity={0.9}>
             <Animated.Image
               source={{ uri: bannerImages[currentBannerIndex].uri }}
               style={[
@@ -850,7 +842,7 @@ export default function HomeScreen() {
             />
             {/* Main Banner Gradient - Minimalized */}
             <LinearGradient
-              colors={['transparent', 'rgba(34, 197, 94, 0.1)', 'rgba(34, 197, 94, 0.5)']}
+              colors={['transparent', 'rgba(132, 204, 22, 0.1)', 'rgba(132, 204, 22, 0.5)']}
               style={styles.bannerGradient}
             />
             <Animated.View
@@ -858,7 +850,7 @@ export default function HomeScreen() {
               <Text style={styles.bannerTitle}>{bannerImages[currentBannerIndex].title}</Text>
               <Text style={styles.bannerSubtitle}>{bannerImages[currentBannerIndex].subtitle}</Text>
             </Animated.View>
-          </View>
+          </TouchableOpacity>
           <View style={styles.bannerIndicators}>
             {bannerImages.map((_, index) => (
               <TouchableOpacity
@@ -1023,8 +1015,9 @@ export default function HomeScreen() {
                       } else if (isMeal) {
                         handleMealPlanBannerPress();
                       } else {
+                        // For Meal & Exercise Plan - always go to Premium for non-premium users
                         if (!user?.isPremium) {
-                          handlePremiumFeaturePress('Meal & Exercise Plan');
+                          navigation.navigate('Premium' as never);
                         } else {
                           validateAndNavigate(() => {
                             (navigation as any).navigate('MealExercisePlan');
@@ -1047,14 +1040,6 @@ export default function HomeScreen() {
                         style={styles.productImage}
                       />
 
-                      {/* Rating Badge - Top Left */}
-                      <View style={styles.ratingBadge}>
-                        <Ionicons name="star" size={12} color="#FFD700" />
-                        <Text style={styles.ratingText}>
-                          {isExercise ? '4.8' : isMeal ? '4.9' : '4.7'}
-                        </Text>
-                      </View>
-
                       {/* Content Section - Bottom */}
                       <View style={styles.cardContent}>
                         <Text style={styles.cardTitle}>
@@ -1067,21 +1052,21 @@ export default function HomeScreen() {
                                 ? 'Active Meal Plan'
                                 : 'Fresh Nutrition'
                               : hasMealExercisePlan
-                                ? 'Complete Wellness'
+                                ? 'Active Meal & Exercise Plan'
                                 : 'Full Package'}
                         </Text>
                         <Text style={styles.cardPrice}>
                           {isExercise
                             ? hasExercisePlan
                               ? `${exercisePlanCount} Plans`
-                              : '$29.99'
+                              : 'Get Fit Now!'
                             : isMeal
                               ? hasMealPlan
                                 ? `${mealPlanCount} Plans`
-                                : '$19.99'
+                                : 'Plan Your Meal!'
                               : hasMealExercisePlan
                                 ? `${mealExercisePlanCount} Plans`
-                                : '$39.99'}
+                                : 'Get the best of both worlds!'}
                         </Text>
                       </View>
 
@@ -1147,15 +1132,16 @@ export default function HomeScreen() {
                 </View>
               </View>
               {!user?.isPremium && (
-                <View style={styles.premiumBadge}>
-                  <Ionicons name="star" size={16} color="#FFD700" />
+                <View style={styles.premiumIndicator}>
+                  <Ionicons name="star" size={12} color="#FFD700" />
+                  <Text style={styles.premiumText}>PRO</Text>
                 </View>
               )}
             </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -1207,7 +1193,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 55,
+    paddingTop: 16,
     paddingBottom: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
@@ -1516,24 +1502,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '65%',
     resizeMode: 'cover',
-  },
-  ratingBadge: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    zIndex: 10,
-    gap: 4,
-  },
-  ratingText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    fontWeight: '600',
   },
   cardContent: {
     position: 'absolute',

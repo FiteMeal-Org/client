@@ -4,13 +4,11 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ImageBackground,
   SafeAreaView,
   ScrollView,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   validateProfileForPlanCreation,
   showProfileIncompleteAlert,
@@ -50,7 +48,7 @@ export default function PlanSelectionScreen({ navigation }: PlanSelectionScreenP
           { text: 'Cancel', style: 'cancel' },
           {
             text: 'Go Premium',
-            onPress: () => navigation.navigate('Premium' as never)
+            onPress: () => navigation.navigate('Premium' as never),
           },
         ]
       );
@@ -111,138 +109,114 @@ export default function PlanSelectionScreen({ navigation }: PlanSelectionScreenP
   };
 
   return (
-    <ImageBackground
-      source={{
-        uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
-      }}
-      style={styles.background}
-      resizeMode="cover">
-      <LinearGradient colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)']} style={styles.overlay} />
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Choose Your Plan</Text>
+      </View>
 
-      <SafeAreaView style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Choose Your Plan</Text>
+      {/* Content */}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={true}>
+        <View style={styles.titleSection}>
+          <Text style={styles.mainTitle}>What Would You Like to Create?</Text>
+          <Text style={styles.subtitle}>Choose the type of plan that fits your fitness goals</Text>
         </View>
 
-        {/* Content */}
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          bounces={true}>
-          <View style={styles.titleSection}>
-            <Text style={styles.mainTitle}>What Would You Like to Create?</Text>
-            <Text style={styles.subtitle}>
-              Choose the type of plan that fits your fitness goals
-            </Text>
-          </View>
-
-          <View style={styles.optionsContainer}>
-            {/* Meal Plan Option */}
-            <TouchableOpacity
-              style={styles.optionCard}
-              onPress={handleMealPlanPress}
-              activeOpacity={0.8}>
-              <LinearGradient
-                colors={['rgba(139, 90, 140, 0.9)', 'rgba(101, 66, 102, 0.9)']}
-                style={styles.optionGradient}>
-                <View style={styles.optionContent}>
-                  <View style={styles.iconContainer}>
-                    <Ionicons name="restaurant-outline" size={40} color="white" />
-                  </View>
-                  <Text style={styles.optionTitle}>Get a Meal Plan</Text>
-                  <Text style={styles.optionDescription}>
-                    Create a personalized meal plan based on your dietary goals and preferences
-                  </Text>
-                  <View style={styles.featuresContainer}>
-                    <Text style={styles.feature}>• Customized nutrition</Text>
-                    <Text style={styles.feature}>• Meal recommendations</Text>
-                    <Text style={styles.feature}>• Calorie tracking</Text>
-                  </View>
+        <View style={styles.optionsContainer}>
+          {/* Meal Plan Option */}
+          <TouchableOpacity
+            style={styles.optionCard}
+            onPress={handleMealPlanPress}
+            activeOpacity={0.8}>
+            <View style={styles.optionGradient}>
+              <View style={styles.optionContent}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="restaurant-outline" size={40} color="#6366F1" />
                 </View>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {/* Exercise Plan Option */}
-            <TouchableOpacity
-              style={styles.optionCard}
-              onPress={handleExercisePlanPress}
-              activeOpacity={0.8}>
-              <LinearGradient
-                colors={['rgba(255, 152, 0, 0.9)', 'rgba(230, 124, 0, 0.9)']}
-                style={styles.optionGradient}>
-                <View style={styles.optionContent}>
-                  <View style={styles.iconContainer}>
-                    <Ionicons name="fitness" size={40} color="white" />
-                  </View>
-                  <Text style={styles.optionTitle}>Get Exercise Plan</Text>
-                  <Text style={styles.optionDescription}>
-                    Generate a personalized workout routine based on your goals and preferences
-                  </Text>
-                  <View style={styles.featuresContainer}>
-                    <Text style={styles.feature}>• Custom workout routines</Text>
-                    <Text style={styles.feature}>• Goal-based exercises</Text>
-                    <Text style={styles.feature}>• Flexible duration</Text>
-                  </View>
-                  {!user?.isPremium && (
-                    <View style={styles.premiumBadge}>
-                      <Ionicons name="star" size={16} color="#FFD700" />
-                    </View>
-                  )}
+                <Text style={styles.optionTitle}>Create a Meal Plan</Text>
+                <Text style={styles.optionDescription}>
+                  Create a personalized meal plan based on your dietary goals and preferences
+                </Text>
+                <View style={styles.featuresContainer}>
+                  <Text style={styles.feature}>• Customized nutrition</Text>
+                  <Text style={styles.feature}>• Meal recommendations</Text>
+                  <Text style={styles.feature}>• Calorie tracking</Text>
                 </View>
-              </LinearGradient>
-            </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
 
-            {/* Meal & Exercise Plan Option */}
-            <TouchableOpacity
-              style={styles.optionCard}
-              onPress={handleMealExercisePlanPress}
-              activeOpacity={0.8}>
-              <LinearGradient
-                colors={['rgba(76, 175, 80, 0.9)', 'rgba(56, 142, 60, 0.9)']}
-                style={styles.optionGradient}>
-                <View style={styles.optionContent}>
-                  <View style={styles.iconContainer}>
-                    <Ionicons name="nutrition" size={40} color="white" />
-                  </View>
-                  <Text style={styles.optionTitle}>Get Meal & Exercise Plan</Text>
-                  <Text style={styles.optionDescription}>
-                    Get a complete nutrition and workout plan for optimal results
-                  </Text>
-                  <View style={styles.featuresContainer}>
-                    <Text style={styles.feature}>• Complete wellness plan</Text>
-                    <Text style={styles.feature}>• Integrated nutrition & fitness</Text>
-                    <Text style={styles.feature}>• Comprehensive tracking</Text>
-                  </View>
-                  {!user?.isPremium && (
-                    <View style={styles.premiumBadge}>
-                      <Ionicons name="star" size={16} color="#FFD700" />
-                    </View>
-                  )}
+          {/* Exercise Plan Option */}
+          <TouchableOpacity
+            style={styles.optionCard}
+            onPress={handleExercisePlanPress}
+            activeOpacity={0.8}>
+            <View style={styles.optionGradient}>
+              <View style={styles.optionContent}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="barbell-outline" size={40} color="black" />
                 </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </ImageBackground>
+                <Text style={styles.optionTitle}>Create Exercise Plan</Text>
+                <Text style={styles.optionDescription}>
+                  Create a personalized workout routine based on your goals and preferences
+                </Text>
+                <View style={styles.featuresContainer}>
+                  <Text style={styles.feature}>• Custom workout routines</Text>
+                  <Text style={styles.feature}>• Goal-based exercises</Text>
+                  <Text style={styles.feature}>• Flexible duration</Text>
+                </View>
+                {!user?.isPremium ? (
+                  <View style={styles.premiumIndicator}>
+                    <Ionicons name="star" size={12} color="#FFD700" />
+                    <Text style={styles.premiumText}>PRO</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* Meal & Exercise Plan Option */}
+          <TouchableOpacity
+            style={styles.optionCard}
+            onPress={handleMealExercisePlanPress}
+            activeOpacity={0.8}>
+            <View style={styles.optionGradient}>
+              <View style={styles.optionContent}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="fitness" size={40} color="#10B981" />
+                </View>
+                <Text style={styles.optionTitle}>Create Meal & Exercise Plan</Text>
+                <Text style={styles.optionDescription}>
+                  Create a complete nutrition and workout plan for optimal results
+                </Text>
+                <View style={styles.featuresContainer}>
+                  <Text style={styles.feature}>• Complete wellness plan</Text>
+                  <Text style={styles.feature}>• Integrated nutrition & fitness</Text>
+                  <Text style={styles.feature}>• Comprehensive tracking</Text>
+                </View>
+                {!user?.isPremium ? (
+                  <View style={styles.premiumIndicator}>
+                    <Ionicons name="star" size={12} color="#FFD700" />
+                    <Text style={styles.premiumText}>PRO</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-  },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -255,7 +229,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: 'white',
+    color: '#1F2937',
     textAlign: 'center',
   },
   content: {
@@ -274,13 +248,13 @@ const styles = StyleSheet.create({
   mainTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: 'white',
+    color: '#1F2937',
     textAlign: 'center',
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -291,49 +265,63 @@ const styles = StyleSheet.create({
   optionCard: {
     borderRadius: 20,
     overflow: 'hidden',
-    elevation: 5,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    marginHorizontal: 4,
   },
   optionGradient: {
-    padding: 20,
-    minHeight: 160,
+    padding: 24,
+    minHeight: 180,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   optionContent: {
     alignItems: 'center',
     position: 'relative',
   },
-  premiumBadge: {
+  premiumIndicator: {
     position: 'absolute',
-    right: -10,
-    top: -10,
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 12,
-    padding: 4,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+    gap: 4,
+  },
+  premiumText: {
+    fontSize: 10,
+    color: '#FFD700',
+    fontWeight: 'bold',
   },
   iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(226, 232, 240, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(203, 213, 225, 0.5)',
   },
   optionTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: 'white',
+    color: '#1F2937',
     textAlign: 'center',
     marginBottom: 10,
   },
   optionDescription: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 15,
@@ -344,7 +332,8 @@ const styles = StyleSheet.create({
   },
   feature: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#374151',
     marginBottom: 5,
+    fontWeight: '500',
   },
 });
