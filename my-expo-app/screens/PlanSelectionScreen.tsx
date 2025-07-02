@@ -48,21 +48,15 @@ export default function PlanSelectionScreen({ navigation }: PlanSelectionScreenP
         `${featureName} is a premium feature. Upgrade to access this functionality.`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Go Premium', 
-            onPress: () => {
-              // Navigate back to parent and then to Premium screen
-              const parent = navigation.getParent();
-              if (parent) {
-                parent.navigate('Premium');
-              }
-            }
+          {
+            text: 'Go Premium',
+            onPress: () => navigation.navigate('Premium' as never)
           },
         ]
       );
       return;
     }
-    
+
     // If premium user, proceed with navigation
     navigateCallback();
   };

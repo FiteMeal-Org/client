@@ -15,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { updateMealExerciseStatus } from '../services/mealPlanService';
 
 const BASE_URL = 'https://api-fitemeal.vercel.app';
 
@@ -25,7 +26,7 @@ interface ExerciseData {
   reps: string;
   targetMuscle: string;
   equipment: string;
-  isDone: boolean;
+  // Removed isDone from individual exercises
 }
 
 // Interface untuk workout data
@@ -35,6 +36,7 @@ interface WorkoutData {
   exercises: ExerciseData[];
   caloriesBurned: number;
   notes: string;
+  isDone: boolean; // Added isDone at exercise level
 }
 
 // Interface untuk meal data
@@ -178,50 +180,16 @@ export default function MealExercisePlanScreen() {
     [selectedPlan]
   );
 
-  // Update exercise completion status
+  // Update exercise completion status - Day level completion using service
   const updateExerciseStatus = useCallback(
-    async (planId: string, day: number, exerciseIndex: number, isDone: boolean, notes: string) => {
+    async (planId: string, day: number, isDone: boolean, notes: string) => {
       try {
-        setUpdatingExercise(`${day}-${exerciseIndex}`);
+        setUpdatingExercise(`${day}-exercise`);
 
-        const token = await SecureStore.getItemAsync('access_token');
-        if (!token) {
-          Alert.alert('Error', 'No access token found');
-          throw new Error('No access token found');
-        }
+        // Use the service function with proper planType
+        await updateMealExerciseStatus(planId, day, isDone, notes);
 
-        // Update body structure sesuai dengan contoh API Postman untuk exercise
-        const body = {
-          day: day,
-          planType: "exercise", // Specify this is an exercise plan update
-          exerciseIndex: exerciseIndex,
-          isDone: isDone,
-          notes: notes || "Sudah selesai makan pagi, rasanya enak!"
-        };
-
-        console.log('Sending exercise update request to:', `${BASE_URL}/api/add-meal-exercise/${planId}`);
-        console.log('Request body:', body);
-
-        // Use same endpoint as meal, but with planType: "exercise"
-        const response = await fetch(`${BASE_URL}/api/add-meal-exercise/${planId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(body),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ API Error:', errorText);
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log('✅ Exercise update successful:', result);
-
-        // Update local state
+        // Update local state - Update isDone at exercise level
         setPlans((prevPlans) =>
           prevPlans.map((plan) => {
             if (plan._id === planId) {
@@ -229,16 +197,11 @@ export default function MealExercisePlanScreen() {
                 ...plan,
                 todoList: plan.todoList.map((dayData) => {
                   if (dayData.day === day) {
-                    const updatedExercises = [...dayData.exercise.exercises];
-                    updatedExercises[exerciseIndex] = {
-                      ...updatedExercises[exerciseIndex],
-                      isDone,
-                    };
                     return {
                       ...dayData,
                       exercise: {
                         ...dayData.exercise,
-                        exercises: updatedExercises,
+                        isDone,
                         notes,
                       },
                     };
@@ -349,15 +312,14 @@ export default function MealExercisePlanScreen() {
     await updateMealStatus(selectedPlan, selectedDay, mealType, !meal.isDone, notes);
   };
 
-  // Handle exercise toggle
-  const handleExerciseToggle = async (exerciseIndex: number) => {
+  // Handle exercise toggle - Day level completion
+  const handleExerciseToggle = async () => {
     if (!selectedPlan || !currentDay) return;
 
-    const exercise = currentDay.exercise.exercises[exerciseIndex];
     const noteKey = `${selectedPlan}-${selectedDay}-exercise`;
     const notes = exerciseNotes[noteKey] || currentDay.exercise.notes || '';
 
-    await updateExerciseStatus(selectedPlan, selectedDay, exerciseIndex, !exercise.isDone, notes);
+    await updateExerciseStatus(selectedPlan, selectedDay, !currentDay.exercise.isDone, notes);
   };
 
   // Get meal notes
@@ -483,32 +445,13 @@ export default function MealExercisePlanScreen() {
     );
   };
 
-  // Render exercise card
+  // Render exercise card - No completion button, read-only
   const renderExerciseCard = (exercise: ExerciseData, index: number) => {
-    const isUpdating = updatingExercise === `${selectedDay}-${index}`;
-
     return (
       <View style={styles.exerciseCard} key={index}>
         <View style={styles.exerciseHeader}>
           <Text style={styles.exerciseName}>{exercise.name}</Text>
-          <TouchableOpacity
-            style={[
-              styles.exerciseStatusButton,
-              exercise.isDone && styles.exerciseStatusButtonCompleted,
-              isUpdating && styles.exerciseStatusButtonDisabled,
-            ]}
-            onPress={() => handleExerciseToggle(index)}
-            disabled={isUpdating}>
-            {isUpdating ? (
-              <ActivityIndicator size="small" color={exercise.isDone ? '#FFFFFF' : '#666666'} />
-            ) : (
-              <Ionicons
-                name={exercise.isDone ? 'checkmark-circle' : 'ellipse-outline'}
-                size={24}
-                color={exercise.isDone ? '#FFFFFF' : '#F59E0B'}
-              />
-            )}
-          </TouchableOpacity>
+          {/* Removed completion button from individual exercises */}
         </View>
         <Text style={styles.exerciseDetails}>
           {exercise.sets} sets × {exercise.reps}
@@ -541,7 +484,7 @@ export default function MealExercisePlanScreen() {
         </View>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No meal & exercise plans found</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.createButton}
             onPress={() => navigation.navigate('PlanSelection' as never)}
           >
@@ -555,7 +498,7 @@ export default function MealExercisePlanScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" backgroundColor="#FFFFFF" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -569,7 +512,7 @@ export default function MealExercisePlanScreen() {
         style={styles.scrollContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}>
-        
+
         {/* Plan Selector */}
         <View style={styles.planSelector}>
           <Text style={styles.sectionTitle}>Select Plan</Text>
@@ -630,13 +573,43 @@ export default function MealExercisePlanScreen() {
             <View style={styles.exerciseSection}>
               <Text style={styles.sectionTitle}>Exercise</Text>
               <View style={styles.exerciseOverview}>
-                <Text style={styles.exerciseSessionName}>{currentDay.exercise.exerciseName}</Text>
-                <Text style={styles.exerciseSessionDuration}>{currentDay.exercise.totalSession}</Text>
-                <Text style={styles.exerciseCalories}>{currentDay.exercise.caloriesBurned} calories to burn</Text>
+                <View style={styles.exerciseOverviewContent}>
+                  <Text style={styles.exerciseSessionName}>{currentDay.exercise.exerciseName}</Text>
+                  <Text style={styles.exerciseSessionDuration}>{currentDay.exercise.totalSession}</Text>
+                  <Text style={styles.exerciseCalories}>{currentDay.exercise.caloriesBurned} calories to burn</Text>
+                </View>
+
+                {/* Exercise Mark as Complete Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.exerciseCompletionButton,
+                    currentDay.exercise.isDone && styles.exerciseCompletionButtonCompleted,
+                    updatingExercise === `${selectedDay}-exercise` && styles.exerciseCompletionButtonDisabled,
+                  ]}
+                  onPress={handleExerciseToggle}
+                  disabled={updatingExercise === `${selectedDay}-exercise`}>
+                  {updatingExercise === `${selectedDay}-exercise` ? (
+                    <ActivityIndicator size="small" color={currentDay.exercise.isDone ? '#FFFFFF' : '#666666'} />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name={currentDay.exercise.isDone ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={20}
+                        color={currentDay.exercise.isDone ? '#FFFFFF' : '#F59E0B'}
+                      />
+                      <Text style={[
+                        styles.exerciseCompletionButtonText,
+                        currentDay.exercise.isDone && styles.exerciseCompletionButtonTextCompleted
+                      ]}>
+                        {currentDay.exercise.isDone ? 'Completed' : 'Mark as Complete'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
 
               <Text style={styles.sectionTitle}>Exercises:</Text>
-              {currentDay.exercise.exercises.map((exercise, index) => 
+              {currentDay.exercise.exercises.map((exercise, index) =>
                 renderExerciseCard(exercise, index)
               )}
 
@@ -935,6 +908,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  exerciseOverviewContent: {
+    flex: 1,
   },
   exerciseSessionName: {
     fontSize: 16,
@@ -950,6 +929,32 @@ const styles = StyleSheet.create({
   exerciseCalories: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  exerciseCompletionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    gap: 6,
+  },
+  exerciseCompletionButtonCompleted: {
+    backgroundColor: '#F59E0B',
+    borderColor: '#F59E0B',
+  },
+  exerciseCompletionButtonDisabled: {
+    opacity: 0.7,
+  },
+  exerciseCompletionButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#F59E0B',
+  },
+  exerciseCompletionButtonTextCompleted: {
+    color: '#FFFFFF',
   },
   exerciseCard: {
     backgroundColor: '#FFFFFF',
@@ -973,16 +978,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
     flex: 1,
-  },
-  exerciseStatusButton: {
-    padding: 4,
-  },
-  exerciseStatusButtonCompleted: {
-    backgroundColor: '#F59E0B',
-    borderRadius: 12,
-  },
-  exerciseStatusButtonDisabled: {
-    opacity: 0.7,
   },
   exerciseDetails: {
     fontSize: 12,
