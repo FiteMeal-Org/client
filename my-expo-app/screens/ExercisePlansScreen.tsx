@@ -14,19 +14,30 @@ import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { API_CONFIG } from '../config/api';
 import { useNavigation } from '@react-navigation/native';
+import { updateExerciseStatus } from '../services/mealPlanService';
 
-// Interface untuk exercise data
-interface ExerciseData {
-  day: number;
-  date: string;
-  excerciseName: string;
-  totalSession: string;
-  caloriesBurned: number;
+// Interface untuk individual exercise dalam exercises array
+interface IndividualExercise {
+  name: string;
   sets: number;
   reps: string;
   targetMuscle: string;
+  equipment: string;
   isDone: boolean;
-  notes?: string;
+}
+
+// Interface untuk exercise data yang diupdate sesuai struktur baru
+interface ExerciseData {
+  day: number;
+  date: string;
+  exercise: {
+    exerciseName: string;
+    totalSession: string;
+    exercises: IndividualExercise[];
+    caloriesBurned: number;
+    notes: string;
+    isDone: boolean;
+  };
 }
 
 // Interface untuk exercise plan data
@@ -41,6 +52,65 @@ interface ExercisePlanData {
   createdAt: string;
   updatedAt: string;
 }
+
+// Helper function to safely get exercise data with robust key handling
+const safeGetExerciseProperty = (exercise: any, property: string, fallback: any = '') => {
+  if (!exercise) return fallback;
+
+  // Handle different possible key variations
+  switch (property) {
+    case 'exerciseName':
+      return exercise.exerciseName || exercise.excerciseName || exercise.name || 'Unknown Exercise';
+    case 'caloriesBurned':
+      return exercise.caloriesBurned || exercise.calories || 0;
+    case 'isDone':
+      return exercise.isDone || exercise.completed || false;
+    case 'totalSession':
+      return exercise.totalSession || exercise.sessions || exercise.duration || 'N/A';
+    case 'notes':
+      return exercise.notes || exercise.note || '';
+    default:
+      return exercise[property] || fallback;
+  }
+};
+
+// Helper function to normalize exercise plan data from API
+const normalizeExercisePlanData = (planData: any): ExercisePlanData => {
+  const normalizedPlan = { ...planData };
+
+  if (normalizedPlan.todoList && Array.isArray(normalizedPlan.todoList)) {
+    normalizedPlan.todoList = normalizedPlan.todoList.map((dayData: any) => {
+      const normalizedDay = { ...dayData };
+
+      // Handle the exercise data structure
+      if (dayData.exercise) {
+        // Data is already in the expected structure
+        normalizedDay.exercise = {
+          exerciseName: safeGetExerciseProperty(dayData.exercise, 'exerciseName'),
+          totalSession: safeGetExerciseProperty(dayData.exercise, 'totalSession'),
+          caloriesBurned: safeGetExerciseProperty(dayData.exercise, 'caloriesBurned'),
+          isDone: safeGetExerciseProperty(dayData.exercise, 'isDone'),
+          notes: safeGetExerciseProperty(dayData.exercise, 'notes'),
+          exercises: dayData.exercise.exercises || [],
+        };
+      } else {
+        // Transform flat structure to nested structure
+        normalizedDay.exercise = {
+          exerciseName: safeGetExerciseProperty(dayData, 'exerciseName'),
+          totalSession: safeGetExerciseProperty(dayData, 'totalSession'),
+          caloriesBurned: safeGetExerciseProperty(dayData, 'caloriesBurned'),
+          isDone: safeGetExerciseProperty(dayData, 'isDone'),
+          notes: safeGetExerciseProperty(dayData, 'notes'),
+          exercises: [], // This might need to be populated differently based on API structure
+        };
+      }
+
+      return normalizedDay;
+    });
+  }
+
+  return normalizedPlan;
+};
 
 export default function ExercisePlansScreen() {
   const navigation = useNavigation();
@@ -57,59 +127,32 @@ export default function ExercisePlansScreen() {
   const [updatingExercise, setUpdatingExercise] = useState<string | null>(null);
 
   // Update exercise completion status
-  const updateExerciseStatus = useCallback(
+  const updateExerciseStatusLocal = useCallback(
     async (planId: string, day: number, isDone: boolean, notes: string) => {
       try {
         setUpdatingExercise(`${day}`);
 
-        const token = await SecureStore.getItemAsync('access_token');
-        if (!token) {
-          Alert.alert('Error', 'No access token found');
-          throw new Error('No access token found');
-        }
+        // Gunakan service untuk update status
+        await updateExerciseStatus(planId, day, isDone, notes);
 
-        const body = {
-          day,
-          isDone,
-          notes,
-        };
-
-        console.log('Sending request to:', `${API_CONFIG.BASE_URL}/api/excercise/${planId}`);
-        console.log('Request body:', body);
-
-        const response = await fetch(`${API_CONFIG.BASE_URL}/api/excercise/${planId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(body),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ API Error:', errorText);
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log('✅ Update successful:', result);
-
-        // Update local state
+        // Update local state dengan struktur baru
         const updatePlans = (prevPlans: ExercisePlanData[]) =>
           prevPlans.map((plan) => {
             if (plan._id === planId) {
               return {
                 ...plan,
-                todoList: plan.todoList.map((exercise) => {
-                  if (exercise.day === day) {
+                todoList: plan.todoList.map((exerciseData) => {
+                  if (exerciseData.day === day) {
                     return {
-                      ...exercise,
-                      isDone,
-                      notes,
+                      ...exerciseData,
+                      exercise: {
+                        ...exerciseData.exercise,
+                        isDone,
+                        notes,
+                      },
                     };
                   }
-                  return exercise;
+                  return exerciseData;
                 }),
               };
             }
@@ -162,8 +205,8 @@ export default function ExercisePlansScreen() {
 
       const result = await response.json();
 
-      const ongoing = Array.isArray(result.data?.ongoing) ? result.data.ongoing : [];
-      const upcoming = Array.isArray(result.data?.upcoming) ? result.data.upcoming : [];
+      const ongoing = Array.isArray(result.data?.ongoing) ? result.data.ongoing.map(normalizeExercisePlanData) : [];
+      const upcoming = Array.isArray(result.data?.upcoming) ? result.data.upcoming.map(normalizeExercisePlanData) : [];
 
       setOngoingPlans(ongoing);
       setUpcomingPlans(upcoming);
@@ -204,15 +247,15 @@ export default function ExercisePlansScreen() {
     if (!selectedPlan || !currentExercise) return;
 
     const noteKey = `${selectedPlan}-${selectedDay}`;
-    const notes = exerciseNotes[noteKey] || currentExercise.notes || '';
+    const notes = exerciseNotes[noteKey] || currentExercise.exercise.notes || '';
 
-    await updateExerciseStatus(selectedPlan, selectedDay, !currentExercise.isDone, notes);
+    await updateExerciseStatusLocal(selectedPlan, selectedDay, !safeGetExerciseProperty(currentExercise.exercise, 'isDone'), notes);
   };
 
   // Get notes for a specific exercise
   const getExerciseNotes = () => {
     const noteKey = `${selectedPlan}-${selectedDay}`;
-    return exerciseNotes[noteKey] || currentExercise?.notes || '';
+    return exerciseNotes[noteKey] || currentExercise?.exercise.notes || '';
   };
 
   // Set notes for a specific exercise
@@ -236,32 +279,94 @@ export default function ExercisePlansScreen() {
             <Text style={styles.exerciseTypeIcon}>💪</Text>
             <Text style={styles.exerciseTypeText}>Exercise</Text>
           </View>
-          <Text style={styles.caloriesText}>{exercise.caloriesBurned} burn cal</Text>
+          <Text style={styles.caloriesText}>
+            {safeGetExerciseProperty(exercise.exercise, 'caloriesBurned')} burn cal
+          </Text>
         </View>
 
-        <Text style={styles.exerciseName}>{exercise.excerciseName}</Text>
+        {/* Exercise Name with Mark as Complete Button */}
+        <View style={styles.exerciseNameContainer}>
+          <Text style={styles.exerciseName}>
+            {safeGetExerciseProperty(exercise.exercise, 'exerciseName')}
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.exerciseCompleteButton,
+              safeGetExerciseProperty(exercise.exercise, 'isDone') && styles.exerciseCompleteButtonDone,
+              isUpdating && styles.exerciseCompleteButtonDisabled,
+            ]}
+            onPress={handleExerciseToggle}
+            disabled={isUpdating}>
+            {isUpdating ? (
+              <ActivityIndicator size="small" color={safeGetExerciseProperty(exercise.exercise, 'isDone') ? '#FFFFFF' : '#666666'} />
+            ) : (
+              <Text
+                style={[
+                  styles.exerciseCompleteButtonText,
+                  safeGetExerciseProperty(exercise.exercise, 'isDone') && styles.exerciseCompleteButtonTextDone,
+                ]}>
+                {safeGetExerciseProperty(exercise.exercise, 'isDone') ? '✓' : '○'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.exerciseInfoGrid}>
           <View style={styles.exerciseInfoItem}>
             <Text style={styles.exerciseInfoLabel}>Duration</Text>
-            <Text style={styles.exerciseInfoValue}>{exercise.totalSession}</Text>
+            <Text style={styles.exerciseInfoValue}>{exercise.exercise.totalSession}</Text>
           </View>
           <View style={styles.exerciseInfoItem}>
-            <Text style={styles.exerciseInfoLabel}>Sets</Text>
-            <Text style={styles.exerciseInfoValue}>{exercise.sets}</Text>
-          </View>
-          <View style={styles.exerciseInfoItem}>
-            <Text style={styles.exerciseInfoLabel}>Reps</Text>
-            <Text style={styles.exerciseInfoValue}>{exercise.reps}</Text>
+            <Text style={styles.exerciseInfoLabel}>Total Exercises</Text>
+            <Text style={styles.exerciseInfoValue}>{exercise.exercise.exercises.length}</Text>
           </View>
           <View style={styles.exerciseInfoItem}>
             <Text style={styles.exerciseInfoLabel}>Burned Calories</Text>
-            <Text style={styles.exerciseInfoValue}>{exercise.caloriesBurned}</Text>
+            <Text style={styles.exerciseInfoValue}>
+              {safeGetExerciseProperty(exercise.exercise, 'caloriesBurned')}
+            </Text>
+          </View>
+          <View style={styles.exerciseInfoItem}>
+            <Text style={styles.exerciseInfoLabel}>Status</Text>
+            <Text style={[
+              styles.exerciseInfoValue,
+              { color: safeGetExerciseProperty(exercise.exercise, 'isDone') ? '#4CAF50' : '#FF5722' }
+            ]}>
+              {safeGetExerciseProperty(exercise.exercise, 'isDone') ? 'Completed' : 'Pending'}
+            </Text>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Target Muscles:</Text>
-        <Text style={styles.targetMuscles}>{exercise.targetMuscle}</Text>
+        {/* Individual Exercises List - Display Only */}
+        <Text style={styles.sectionTitle}>Exercises:</Text>
+        <View style={styles.individualExercisesContainer}>
+          {exercise.exercise.exercises.map((individualExercise, index) => (
+            <View key={index} style={styles.individualExerciseCard}>
+              <View style={styles.exerciseHeader}>
+                <Text style={styles.individualExerciseName}>{individualExercise.name}</Text>
+                <View style={[
+                  styles.exerciseStatusBadge,
+                  { backgroundColor: safeGetExerciseProperty(exercise.exercise, 'isDone') ? '#4CAF50' : '#FFA726' }
+                ]}>
+                  <Text style={styles.exerciseStatusText}>
+                    {safeGetExerciseProperty(exercise.exercise, 'isDone') ? '✓' : '○'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.exerciseDetails}>
+                <Text style={styles.exerciseDetailText}>
+                  {individualExercise.sets} sets × {individualExercise.reps}
+                </Text>
+                <Text style={styles.exerciseDetailText}>
+                  Target: {individualExercise.targetMuscle}
+                </Text>
+                <Text style={styles.exerciseDetailText}>
+                  Equipment: {individualExercise.equipment}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
 
         {/* Notes Input */}
         <Text style={styles.sectionTitle}>Notes:</Text>
@@ -274,38 +379,6 @@ export default function ExercisePlansScreen() {
           numberOfLines={3}
           textAlignVertical="top"
         />
-
-        <View style={styles.statusContainer}>
-          <TouchableOpacity
-            style={[
-              styles.statusButton,
-              exercise.isDone && styles.statusButtonCompleted,
-              isUpdating && styles.statusButtonDisabled,
-            ]}
-            onPress={handleExerciseToggle}
-            disabled={isUpdating}>
-            {isUpdating ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator size="small" color={exercise.isDone ? '#FFFFFF' : '#666666'} />
-                <Text
-                  style={[
-                    styles.statusButtonText,
-                    exercise.isDone && styles.statusButtonTextCompleted,
-                  ]}>
-                  Updating...
-                </Text>
-              </View>
-            ) : (
-              <Text
-                style={[
-                  styles.statusButtonText,
-                  exercise.isDone && styles.statusButtonTextCompleted,
-                ]}>
-                {exercise.isDone ? 'Completed' : 'Mark as Complete'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
       </View>
     );
   };
@@ -366,7 +439,7 @@ export default function ExercisePlansScreen() {
         {/* Select Exercise Plan Section */}
         <Text style={styles.sectionHeader}>Select Exercise Plan</Text>
 
-        <ScrollView 
+        <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.plansScrollContent}
@@ -444,7 +517,7 @@ export default function ExercisePlansScreen() {
                       })}
                     </Text>
                     <Text style={[styles.dayCalories, isSelected && styles.selectedDayCalories]}>
-                      {exercise.caloriesBurned} burn cal
+                      {safeGetExerciseProperty(exercise.exercise, 'caloriesBurned')} burn cal
                     </Text>
                   </TouchableOpacity>
                 );
@@ -455,7 +528,7 @@ export default function ExercisePlansScreen() {
             {currentExercise && (
               <>
                 <Text style={styles.sectionHeader}>
-                  Day {selectedDay} Exercise ({currentExercise.caloriesBurned} calories)
+                  Day {selectedDay} Exercise ({safeGetExerciseProperty(currentExercise.exercise, 'caloriesBurned')} calories)
                 </Text>
 
                 {renderExerciseDetail(currentExercise)}
@@ -732,6 +805,43 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
+  // Exercise Name Container Styles
+  exerciseNameContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingVertical: 8,
+  },
+
+  // Exercise Complete Button Styles (small, on exercise name)
+  exerciseCompleteButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F0F0F0',
+    borderWidth: 2,
+    borderColor: '#FF9800',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  exerciseCompleteButtonDone: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  exerciseCompleteButtonDisabled: {
+    opacity: 0.6,
+  },
+  exerciseCompleteButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FF9800',
+  },
+  exerciseCompleteButtonTextDone: {
+    color: '#FFFFFF',
+  },
+
   // Exercise Info Grid
   exerciseInfoGrid: {
     flexDirection: 'row',
@@ -817,5 +927,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+
+  // Individual Exercises Styles
+  individualExercisesContainer: {
+    marginBottom: 16,
+  },
+  individualExerciseCard: {
+    backgroundColor: '#F8F8F8',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF9800',
+  },
+  exerciseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  individualExerciseName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    flex: 1,
+  },
+  exerciseStatusBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  exerciseStatusText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  exerciseDetails: {
+    gap: 4,
+  },
+  exerciseDetailText: {
+    fontSize: 12,
+    color: '#666666',
   },
 });

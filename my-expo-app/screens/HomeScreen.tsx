@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Image,
   Animated,
-  PanResponder,
   Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -18,6 +17,7 @@ import {
   checkUserExercisePlan,
   checkUserMealExercisePlan,
   calculateMealExerciseTodayIntake,
+  calculateMealExerciseBurn,
 } from '../services/mealPlanService';
 import { getUserProfile } from '../services/profileService'; // Import profile service
 import {
@@ -45,7 +45,6 @@ export default function HomeScreen() {
   // State untuk meal & exercise plan
   const [hasMealExercisePlan, setHasMealExercisePlan] = useState(false);
   const [mealExercisePlanCount, setMealExercisePlanCount] = useState(0);
-  const [mealExercisePlanLoading, setMealExercisePlanLoading] = useState(true);
 
   // New states for calorie tracking
   const [intakeCalories, setIntakeCalories] = useState(0);
@@ -54,6 +53,14 @@ export default function HomeScreen() {
   const [remainingCalories, setRemainingCalories] = useState(0);
   const [completedMeals, setCompletedMeals] = useState(0);
   const [totalMeals, setTotalMeals] = useState(0);
+
+  // State untuk exercise calories
+  const [burnedCalories, setBurnedCalories] = useState(0);
+  const [targetBurnCalories, setTargetBurnCalories] = useState(0);
+  const [burnPercentage, setBurnPercentage] = useState(0);
+  const [remainingBurnCalories, setRemainingBurnCalories] = useState(0);
+  const [completedExercises, setCompletedExercises] = useState(0);
+  const [totalExercises, setTotalExercises] = useState(0);
 
   // Profile states
   const [profile, setProfile] = useState<any>(null);
@@ -83,7 +90,7 @@ export default function HomeScreen() {
 
       setProfile(profileData);
       setUser(profileData); // Set user data for premium check
-    } catch (error) {
+    } catch {
       // console.error('❌ HomeScreen: Error loading profile:', error);
       setProfile(null);
       setUser(null);
@@ -101,16 +108,16 @@ export default function HomeScreen() {
           `${featureName} is a premium feature. Upgrade to access this functionality.`,
           [
             { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Go Premium', 
-              onPress: () => navigation.navigate('Premium' as never) 
+            {
+              text: 'Go Premium',
+              onPress: () => navigation.navigate('Premium' as never)
             },
           ]
         );
       });
       return;
     }
-    
+
     // Handle navigation for premium users with profile validation
     if (featureName === 'Exercise Plan') {
       // Validate profile first, then navigate
@@ -226,7 +233,7 @@ export default function HomeScreen() {
         console.log('📊 HomeScreen: Length check:', ongoingPlans?.length);
         // Don't reset calorie data here, let meal & exercise plan check handle it
       }
-      
+
       return mealPlanExists; // Return meal plan status
     } catch (error) {
       console.error('❌ HomeScreen: Error checking meal plan status:', error);
@@ -238,7 +245,7 @@ export default function HomeScreen() {
       setHasMealPlan(false);
       setMealPlanCount(0);
       resetCalorieData();
-      
+
       return false; // Return meal plan status
     } finally {
       setMealPlanLoading(false);
@@ -278,7 +285,6 @@ export default function HomeScreen() {
   // Check meal & exercise plan status
   const checkMealExercisePlanStatus = async (mealPlanExists = false) => {
     try {
-      setMealExercisePlanLoading(true);
       console.log('🍽️🏋️ HomeScreen: Checking meal & exercise plan status...');
 
       const result = await checkUserMealExercisePlan();
@@ -296,7 +302,7 @@ export default function HomeScreen() {
         // 1. Jika ada meal plan → gunakan kalori dari meal plan  
         // 2. Jika tidak ada meal plan tapi ada meal & exercise plan → gunakan kalori dari meal & exercise plan
         // 3. Jika tidak ada keduanya → reset kalori data
-        
+
         console.log('🍽️🏋️ HomeScreen: Calorie logic - mealPlanExists:', mealPlanExists);
         console.log('🍽️🏋️ HomeScreen: Calorie logic - hasMealExercisePlan:', result.hasMealExercisePlan);
         console.log('🍽️🏋️ HomeScreen: Calorie logic - ongoing plans length:', result.ongoingPlans?.length);
@@ -313,7 +319,7 @@ export default function HomeScreen() {
               console.log('   - targetCalories:', calorieData.targetCalories);
               console.log('   - completedMeals:', calorieData.completedMeals);
               console.log('   - totalMeals:', calorieData.totalMeals);
-              
+
               setIntakeCalories(calorieData.intakeCalories || 0);
               setTargetCalories(calorieData.targetCalories || 0);
               setIntakePercentage(calorieData.intakePercentage || 0);
@@ -338,6 +344,54 @@ export default function HomeScreen() {
         } else {
           console.log('🍽️🏋️ HomeScreen: ⚠️ Unhandled condition for calorie logic');
         }
+
+        // Calculate exercise burn calories from meal & exercise plans
+        // Priority: 
+        // 1. If there are standalone exercise plans → use exercise plan data
+        // 2. If no exercise plans but has meal & exercise plan → use meal & exercise plan exercise data
+        // 3. If neither → reset exercise data
+
+        const hasStandaloneExercisePlan = hasExercisePlan && exercisePlanCount > 0;
+        console.log('🍽️🏋️ HomeScreen: Exercise burn logic - hasStandaloneExercisePlan:', hasStandaloneExercisePlan);
+        console.log('🍽️🏋️ HomeScreen: Exercise burn logic - hasMealExercisePlan:', result.hasMealExercisePlan);
+
+        if (!hasStandaloneExercisePlan && result.hasMealExercisePlan && Array.isArray(result.ongoingPlans) && result.ongoingPlans.length > 0) {
+          console.log('🍽️🏋️ HomeScreen: ✅ Condition met: No standalone exercise plan but has meal & exercise plan, calculating exercise burn...');
+          try {
+            const exerciseBurnData = calculateMealExerciseBurn(result.ongoingPlans);
+            console.log('🍽️🏋️ HomeScreen: Received exercise burn data from meal & exercise plan:', exerciseBurnData);
+
+            if (exerciseBurnData && typeof exerciseBurnData === 'object') {
+              console.log('🍽️🏋️ HomeScreen: ✅ Setting exercise burn data from meal & exercise plan:');
+              console.log('   - burnedCalories:', exerciseBurnData.burnedCalories);
+              console.log('   - targetBurnCalories:', exerciseBurnData.targetBurnCalories);
+              console.log('   - completedExercises:', exerciseBurnData.completedExercises);
+              console.log('   - totalExercises:', exerciseBurnData.totalExercises);
+
+              setBurnedCalories(exerciseBurnData.burnedCalories || 0);
+              setTargetBurnCalories(exerciseBurnData.targetBurnCalories || 0);
+              setBurnPercentage(exerciseBurnData.burnPercentage || 0);
+              setRemainingBurnCalories(exerciseBurnData.remainingBurnCalories || 0);
+              setCompletedExercises(exerciseBurnData.completedExercises || 0);
+              setTotalExercises(exerciseBurnData.totalExercises || 0);
+            } else {
+              console.log('❌ HomeScreen: Invalid exercise burn data received from meal & exercise plan');
+              resetExerciseCalorieData();
+            }
+          } catch (error) {
+            console.error('❌ HomeScreen: Error calculating meal & exercise plan exercise burn:', error);
+            resetExerciseCalorieData();
+          }
+        } else if (!hasStandaloneExercisePlan && !result.hasMealExercisePlan) {
+          // If no exercise plan and no meal & exercise plan, reset exercise data
+          console.log('🍽️🏋️ HomeScreen: ❌ No exercise plan and no meal & exercise plan, resetting exercise data');
+          resetExerciseCalorieData();
+        } else if (hasStandaloneExercisePlan) {
+          console.log('🍽️🏋️ HomeScreen: ℹ️ Standalone exercise plan exists, keeping exercise plan data');
+          // Do nothing, exercise plan data should already be set by checkExercisePlanStatus
+        } else {
+          console.log('🍽️🏋️ HomeScreen: ⚠️ Unhandled condition for exercise burn logic');
+        }
       } else {
         console.log('❌ HomeScreen: Invalid meal & exercise plan result');
         setHasMealExercisePlan(false);
@@ -354,7 +408,7 @@ export default function HomeScreen() {
         resetCalorieData();
       }
     } finally {
-      setMealExercisePlanLoading(false);
+      // Loading state handled by meal and exercise plan loading states
     }
   };
 
@@ -378,6 +432,17 @@ export default function HomeScreen() {
     setRemainingCalories(0);
     setCompletedMeals(0);
     setTotalMeals(0);
+  };
+
+  // Helper function untuk reset exercise calorie data
+  const resetExerciseCalorieData = () => {
+    console.log('🔄 Resetting exercise calorie data to defaults');
+    setBurnedCalories(0);
+    setTargetBurnCalories(0);
+    setBurnPercentage(0);
+    setRemainingBurnCalories(0);
+    setCompletedExercises(0);
+    setTotalExercises(0);
   };
 
   const validateAndNavigate = async (navigateCallback: () => void) => {
@@ -591,62 +656,6 @@ export default function HomeScreen() {
   };
 
   // Pan responder for swipe gestures
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        return (
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 15
-        );
-      },
-      onPanResponderGrant: () => {
-        stopAutoSlide();
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        // Visual feedback during swipe
-        const maxTranslate = screenWidth * 0.2;
-        const clampedTranslate = Math.max(-maxTranslate, Math.min(maxTranslate, gestureState.dx));
-        translateX.setValue(clampedTranslate);
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        const swipeThreshold = screenWidth * 0.15;
-
-        if (gestureState.dx > swipeThreshold) {
-          // Swipe right - go to previous
-          goToPrevSlide();
-        } else if (gestureState.dx < -swipeThreshold) {
-          // Swipe left - go to next
-          goToNextSlide();
-        } else {
-          // Not enough swipe distance - reset
-          Animated.spring(translateX, {
-            toValue: 0,
-            tension: 200,
-            friction: 8,
-            useNativeDriver: true,
-          }).start();
-
-          // Restart auto slide
-          setTimeout(() => {
-            startAutoSlide();
-          }, 2000);
-        }
-      },
-      onPanResponderTerminate: () => {
-        // Reset on termination
-        Animated.spring(translateX, {
-          toValue: 0,
-          tension: 200,
-          friction: 8,
-          useNativeDriver: true,
-        }).start();
-
-        setTimeout(() => {
-          startAutoSlide();
-        }, 2000);
-      },
-    })
-  ).current;
-
   // Start auto slide on mount
   useEffect(() => {
     startAutoSlide();
@@ -677,7 +686,7 @@ export default function HomeScreen() {
         setCurrentCardIndex(1); // Set to meal plan card (center)
       }
     }, 100);
-    
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -758,12 +767,14 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Updated Quick Stats - Dynamic Calories dengan error handling */}
+        {/* Updated Quick Stats - 2x2 Grid Layout */}
         <View style={styles.statsSection}>
           <Text style={styles.sectionTitle}>Your Progress Today</Text>
-          <View style={styles.statsGrid}>
+
+          {/* Top Row - Meal Calories */}
+          <View style={styles.statsRow}>
             {/* Intake Calories Card - Dynamic */}
-            <View style={styles.statCard}>
+            <View style={[styles.statCard, styles.halfCard]}>
               <View style={styles.statHeader}>
                 <Text style={styles.statIcon}>📊</Text>
                 <Text style={styles.statLabel}>Intake Calories</Text>
@@ -792,7 +803,7 @@ export default function HomeScreen() {
             </View>
 
             {/* Target Calories Card - Dynamic */}
-            <View style={[styles.statCard, styles.targetCard]}>
+            <View style={[styles.statCard, styles.halfCard, styles.targetCard]}>
               <View style={styles.statHeader}>
                 <Text style={styles.targetIcon}>🎯</Text>
                 <Text style={styles.statLabel}>Target Calories</Text>
@@ -813,13 +824,68 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
+
+          {/* Bottom Row - Exercise Calories */}
+          <View style={styles.statsRow}>
+            {/* Burned Calories Card - Dynamic from exercise plans */}
+            <View style={[styles.statCard, styles.halfCard, styles.burnCard]}>
+              <View style={styles.statHeader}>
+                <Text style={styles.statIcon}>🔥</Text>
+                <Text style={styles.statLabel}>Burned Calories</Text>
+              </View>
+              <Text style={styles.statNumber}>
+                {exercisePlanLoading ? '...' : (burnedCalories || 0).toLocaleString()}
+              </Text>
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      styles.burnProgressFill,
+                      { width: `${Math.min(burnPercentage || 0, 100)}%` },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.progressText}>
+                  {exercisePlanLoading ? 'Loading...' : `${burnPercentage || 0}% of target`}
+                </Text>
+                {!exercisePlanLoading && (
+                  <Text style={styles.mealsText}>
+                    {completedExercises || 0}/{totalExercises || 0} exercises completed
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Target Burn Calories Card - Dynamic from exercise plans */}
+            <View style={[styles.statCard, styles.halfCard, styles.targetBurnCard]}>
+              <View style={styles.statHeader}>
+                <Text style={styles.targetIcon}>🎯</Text>
+                <Text style={styles.statLabel}>Target Burn</Text>
+              </View>
+              <Text style={styles.targetNumber}>
+                {exercisePlanLoading ? '...' : (targetBurnCalories || 0).toLocaleString()}
+              </Text>
+              <View style={styles.targetInfo}>
+                <View style={styles.targetBurnBadge}>
+                  <Text style={styles.targetBadgeText}>Exercise Goal</Text>
+                </View>
+                <Text style={styles.remainingText}>
+                  {exercisePlanLoading ? 'Loading...' : `${remainingBurnCalories || 0} remaining`}
+                </Text>
+                {!exercisePlanLoading && (targetBurnCalories || 0) === 0 && (
+                  <Text style={styles.noDataText}>No active exercise plan</Text>
+                )}
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Action Cards - Infinite Scrollable Cards with Dynamic Overlap */}
         <View style={styles.actionSection}>
-          <ScrollView 
+          <ScrollView
             ref={scrollViewRef}
-            horizontal 
+            horizontal
             showsHorizontalScrollIndicator={false}
             decelerationRate="fast"
             snapToInterval={screenWidth}
@@ -836,7 +902,7 @@ export default function HomeScreen() {
             {/* Generate infinite scroll cards - 9 cards (3x3) for seamless looping */}
             {[0, 1, 2, 0, 1, 2, 0, 1, 2].map((cardType, index) => {
               const isExercise = cardType === 0;
-              const isMeal = cardType === 1; 
+              const isMeal = cardType === 1;
               const isMealExercise = cardType === 2;
               const currentIndex = index % 3;
               const isActive = currentIndex === currentCardIndex;
@@ -865,21 +931,21 @@ export default function HomeScreen() {
                       }
                     }}
                     activeOpacity={0.8}>
-                    
+
                     {/* Card Background */}
                     <View style={styles.cardBackground}>
                       {/* Product Image */}
                       <Image
                         source={{
-                          uri: isExercise 
+                          uri: isExercise
                             ? 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop&auto=format'
                             : isMeal
-                            ? 'https://images.unsplash.com/photo-1557800636-894a64c1696f?w=400&h=300&fit=crop&auto=format'
-                            : 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=300&fit=crop&auto=format',
+                              ? 'https://images.unsplash.com/photo-1557800636-894a64c1696f?w=400&h=300&fit=crop&auto=format'
+                              : 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=300&fit=crop&auto=format',
                         }}
                         style={styles.productImage}
                       />
-                      
+
                       {/* Rating Badge - Top Left */}
                       <View style={styles.ratingBadge}>
                         <Ionicons name="star" size={12} color="#FFD700" />
@@ -887,30 +953,30 @@ export default function HomeScreen() {
                           {isExercise ? '4.8' : isMeal ? '4.9' : '4.7'}
                         </Text>
                       </View>
-                      
+
                       {/* Content Section - Bottom */}
                       <View style={styles.cardContent}>
                         <Text style={styles.cardTitle}>
-                          {isExercise 
+                          {isExercise
                             ? (hasExercisePlan ? 'Active Exercise Plan' : 'Fitness Program')
                             : isMeal
-                            ? (hasMealPlan ? 'Active Meal Plan' : 'Fresh Nutrition')
-                            : (hasMealExercisePlan ? 'Complete Wellness' : 'Full Package')}
+                              ? (hasMealPlan ? 'Active Meal Plan' : 'Fresh Nutrition')
+                              : (hasMealExercisePlan ? 'Complete Wellness' : 'Full Package')}
                         </Text>
                         <Text style={styles.cardPrice}>
-                          {isExercise 
+                          {isExercise
                             ? (hasExercisePlan ? `${exercisePlanCount} Plans` : '$29.99')
                             : isMeal
-                            ? (hasMealPlan ? `${mealPlanCount} Plans` : '$19.99')
-                            : (hasMealExercisePlan ? `${mealExercisePlanCount} Plans` : '$39.99')}
+                              ? (hasMealPlan ? `${mealPlanCount} Plans` : '$19.99')
+                              : (hasMealExercisePlan ? `${mealExercisePlanCount} Plans` : '$39.99')}
                         </Text>
                       </View>
-                      
+
                       {/* Floating Action Button - Bottom Right */}
                       <TouchableOpacity style={styles.floatingButton}>
                         <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                       </TouchableOpacity>
-                      
+
                       {/* Premium Badge for non-premium features */}
                       {((isExercise && !hasExercisePlan) || (isMealExercise && !hasMealExercisePlan)) && !user?.isPremium && (
                         <View style={styles.premiumIndicator}>
@@ -918,7 +984,7 @@ export default function HomeScreen() {
                           <Text style={styles.premiumText}>PRO</Text>
                         </View>
                       )}
-                      
+
                       {/* Active Plan Indicator */}
                       {((isExercise && hasExercisePlan) || (isMeal && hasMealPlan) || (isMealExercise && hasMealExercisePlan)) && (
                         <View style={styles.cardActiveIndicator}>
@@ -937,7 +1003,7 @@ export default function HomeScreen() {
         {/* Upload Image Section - keep existing */}
         <View style={styles.uploadSection}>
           <Text style={styles.sectionTitle}>Meal Planning</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.uploadBannerCard}
             onPress={() => handlePremiumFeaturePress('Upload Photo')}
           >
@@ -1179,6 +1245,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 16,
   },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 16,
+  },
   statCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -1191,6 +1263,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     borderWidth: 1,
     borderColor: '#E8F5E8', // Light green border
+  },
+  halfCard: {
+    flex: 1,
+    minHeight: 140,
   },
   statHeader: {
     flexDirection: 'row',
@@ -1240,6 +1316,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#22C55E', // Green progress
     borderRadius: 3,
   },
+  burnProgressFill: {
+    height: '100%',
+    backgroundColor: '#EF4444', // Red progress for burned calories
+    borderRadius: 3,
+  },
   progressText: {
     fontSize: 10,
     color: '#6B7280', // Grey text
@@ -1248,6 +1329,10 @@ const styles = StyleSheet.create({
   targetCard: {
     borderLeftWidth: 3,
     borderLeftColor: '#F59E0B', // Orange accent border
+  },
+  burnCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#DC2626', // Red accent border for burned calories
   },
   targetInfo: {
     alignItems: 'center',
@@ -1276,7 +1361,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingVertical: 16,
   },
-  
+
   // Infinite scrollable cards layout
   cardsScrollView: {
     height: 240,
@@ -1420,7 +1505,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     zIndex: 1,
   },
-  
+
   // Overlapping cards container (tidak digunakan lagi)
   overlappingCardsContainer: {
     flexDirection: 'row',
@@ -1428,16 +1513,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 250,
     position: 'relative',
-    paddingHorizontal: 30, 
+    paddingHorizontal: 30,
     marginHorizontal: 10,
   },
-  
+
   cardsContainer: {
     paddingHorizontal: 0,
     alignItems: 'center',
     height: 240,
   },
-  
+
   // Card wrapper untuk mengatur posisi dan overlap
   cardWrapper: {
     width: screenWidth * 0.65,
@@ -1457,7 +1542,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     marginLeft: -screenWidth * 0.2, // Overlap dengan card tengah
   },
-  
+
   planCard: {
     width: screenWidth * 0.7,
     height: 200,
@@ -1843,5 +1928,16 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontStyle: 'italic',
     marginTop: 2,
+  },
+  targetBurnCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#DC2626', // Red accent border for target burn calories
+  },
+  targetBurnBadge: {
+    backgroundColor: '#FEE2E2', // Light red background
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginBottom: 4,
   },
 });

@@ -42,7 +42,7 @@ export default function AddExerciseScreen({
 
   // Loading state
   const [loading, setLoading] = useState(false);
-  const [profileLoading,setProfileLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [userId, setUserId] = useState('');
 
   const loadUserProfile = useCallback(async () => {
@@ -207,7 +207,7 @@ export default function AddExerciseScreen({
     <SafeAreaView style={styles.container}>
       {/* Header dengan tombol back - Fixed header seperti AddPlanScreen */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => {
             // Navigate back to PlanSelectionScreen
             const parent = navigation.getParent();
@@ -216,7 +216,7 @@ export default function AddExerciseScreen({
             } else {
               navigation.goBack();
             }
-          }} 
+          }}
           style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={24} color="#8B0000" />
@@ -260,122 +260,125 @@ export default function AddExerciseScreen({
               </Text>
             </View>
           </ImageBackground>
-        </View>        <View style={styles.form}>
+        </View>
+
+        {/* Form Content */}
+        <View style={styles.form}>
           {/* Plan Name */}
           <Text style={[styles.inputLabel, styles.firstInputLabel]}>Exercise Plan Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., My Strength Building Journey"
-              placeholderTextColor="#999"
-              value={name}
-              onChangeText={setName}
+          <TextInput
+            style={styles.input}
+            placeholder="e.g., My Strength Building Journey"
+            placeholderTextColor="#999"
+            value={name}
+            onChangeText={setName}
+          />
+
+          {/* Start Date */}
+          <Text style={styles.inputLabel}>Start Date</Text>
+          <TouchableOpacity
+            style={styles.datePickerButton}
+            onPress={() => setShowDatePicker(true)}>
+            <Text style={styles.dateText}>{formatDate(startDate)}</Text>
+            <Ionicons name="chevron-down" size={20} color="#999" />
+          </TouchableOpacity>
+
+          {showDatePicker && (
+            <DateTimePicker
+              value={startDate}
+              mode="date"
+              display="default"
+              onChange={onDateChange}
+              minimumDate={new Date()}
             />
+          )}
 
-            {/* Start Date */}
-            <Text style={styles.inputLabel}>Start Date</Text>
-            <TouchableOpacity
-              style={styles.datePickerButton}
-              onPress={() => setShowDatePicker(true)}>
-              <Text style={styles.dateText}>{formatDate(startDate)}</Text>
-              <Ionicons name="chevron-down" size={20} color="#999" />
-            </TouchableOpacity>
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={startDate}
-                mode="date"
-                display="default"
-                onChange={onDateChange}
-                minimumDate={new Date()}
-              />
-            )}
-
-            {/* Goals */}
-            <Text style={styles.inputLabel}>Fitness Goal</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={goals}
-                style={styles.picker}
-                onValueChange={(itemValue) => setGoals(itemValue)}
-                dropdownIconColor="#999">
-                <Picker.Item label="Select your goal..." value="" />
-                <Picker.Item label="Cutting" value="cutting" />
-                <Picker.Item label="Maintenance" value="maintenance" />
-                <Picker.Item label="Bulking" value="bulking" />
-              </Picker>
-            </View>
-
-            {/* Equipment */}
-            <Text style={styles.inputLabel}>Equipment Needed</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., Dumbbells, Barbell, Bodyweight only"
-              placeholderTextColor="#999"
-              value={equipment}
-              onChangeText={setEquipment}
-              multiline
-              numberOfLines={3}
-            />
-
-            {/* Duration */}
-            <Text style={styles.inputLabel}>Plan Duration</Text>
-            <View style={styles.durationContainer}>
-              {['3', '5', '7'].map((days) => (
-                <TouchableOpacity
-                  key={days}
-                  style={[
-                    styles.durationOption,
-                    duration === days && styles.durationOptionSelected,
-                  ]}
-                  onPress={() => setDuration(days)}>
-                  <Text
-                    style={[
-                      styles.durationOptionText,
-                      duration === days && styles.durationOptionTextSelected,
-                    ]}>
-                    {days} Days
-                  </Text>
-                  <Text
-                    style={[
-                      styles.durationSubtext,
-                      duration === days && styles.durationSubtextSelected,
-                    ]}>
-                    {days === '3' ? 'Starter' : days === '5' ? 'Regular' : 'Intensive'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Create Button */}
-            <TouchableOpacity onPress={handleCreatePlan} activeOpacity={0.8} disabled={loading}>
-              <LinearGradient
-                colors={loading ? ['#888', '#666'] : ['#8B0000', '#DC143C', '#FF6B6B']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.createButton}>
-                {loading ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text style={styles.createButtonText}>Create My Exercise Plan</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {/* Bottom Navigation */}
-            <View style={styles.bottomRegisterContainer}>
-              <Text style={styles.bottomRegisterText}>Want to create meal plan? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('AddScreen')}>
-                <Text style={styles.bottomRegisterLink}>Add Meal Plan</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.bottomRegisterContainer}>
-              <Text style={styles.bottomRegisterText}>View your profile? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('ProfilePage')}>
-                <Text style={styles.bottomRegisterLink}>My Profile</Text>
-              </TouchableOpacity>
-            </View>
+          {/* Goals */}
+          <Text style={styles.inputLabel}>Fitness Goal</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={goals}
+              style={styles.picker}
+              onValueChange={(itemValue) => setGoals(itemValue)}
+              dropdownIconColor="#999">
+              <Picker.Item label="Select your goal..." value="" />
+              <Picker.Item label="Cutting" value="cutting" />
+              <Picker.Item label="Maintenance" value="maintenance" />
+              <Picker.Item label="Bulking" value="bulking" />
+            </Picker>
           </View>
-        </ScrollView>
+
+          {/* Equipment */}
+          <Text style={styles.inputLabel}>Equipment Needed</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g., Dumbbells, Barbell, Bodyweight only"
+            placeholderTextColor="#999"
+            value={equipment}
+            onChangeText={setEquipment}
+            multiline
+            numberOfLines={3}
+          />
+
+          {/* Duration */}
+          <Text style={styles.inputLabel}>Plan Duration</Text>
+          <View style={styles.durationContainer}>
+            {['3', '5', '7'].map((days) => (
+              <TouchableOpacity
+                key={days}
+                style={[
+                  styles.durationOption,
+                  duration === days && styles.durationOptionSelected,
+                ]}
+                onPress={() => setDuration(days)}>
+                <Text
+                  style={[
+                    styles.durationOptionText,
+                    duration === days && styles.durationOptionTextSelected,
+                  ]}>
+                  {days} Days
+                </Text>
+                <Text
+                  style={[
+                    styles.durationSubtext,
+                    duration === days && styles.durationSubtextSelected,
+                  ]}>
+                  {days === '3' ? 'Starter' : days === '5' ? 'Regular' : 'Intensive'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Create Button */}
+          <TouchableOpacity onPress={handleCreatePlan} activeOpacity={0.8} disabled={loading}>
+            <LinearGradient
+              colors={loading ? ['#888', '#666'] : ['#8B0000', '#DC143C', '#FF6B6B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.createButton}>
+              {loading ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Text style={styles.createButtonText}>Create My Exercise Plan</Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Bottom Navigation */}
+          <View style={styles.bottomRegisterContainer}>
+            <Text style={styles.bottomRegisterText}>Want to create meal plan? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('AddScreen')}>
+              <Text style={styles.bottomRegisterLink}>Add Meal Plan</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.bottomRegisterContainer}>
+            <Text style={styles.bottomRegisterText}>View your profile? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('ProfilePage')}>
+              <Text style={styles.bottomRegisterLink}>My Profile</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

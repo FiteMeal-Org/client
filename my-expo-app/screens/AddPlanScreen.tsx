@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ImageBackground,
   SafeAreaView,
   ScrollView,
   Alert,
@@ -15,24 +14,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as SecureStore from 'expo-secure-store';
-import { API_CONFIG } from '../config/api';
 import {
   validateProfileForPlanCreation,
   showProfileIncompleteAlert,
   showProfileErrorAlert,
 } from '../services/profileValidationService';
-
-interface UserProfile {
-  id: string;
-  username: string;
-  email: string;
-  age?: number;
-  height?: number;
-  weight?: number;
-  goals?: string;
-  activity_level?: string;
-  gender?: string;
-}
 
 export default function AddScreen({ navigation }: { navigation: any }) {
   // Form state - hanya yang diperlukan
@@ -43,13 +29,13 @@ export default function AddScreen({ navigation }: { navigation: any }) {
   const [duration, setDuration] = useState('');
   const [goals, setGoals] = useState('');
 
-  // Loading dan profile state
+  // Loading state
   const [loading, setLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     loadUserProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadUserProfile = async () => {
@@ -147,8 +133,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
         gender: result.gender,
       };
 
-      setUserProfile(mappedProfile);
-      console.log('✅ Profile set successfully:', mappedProfile);
+      console.log('✅ Profile mapped successfully:', mappedProfile);
 
       // Set default plan name berdasarkan username
       if (result.username) {
@@ -276,7 +261,7 @@ export default function AddScreen({ navigation }: { navigation: any }) {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
           console.log('❌ Error response:', errorData);
-        } catch (e) {
+        } catch {
           const errorText = await response.text();
           console.log('❌ Error text:', errorText);
           errorMessage = errorText || errorMessage;
@@ -375,48 +360,6 @@ export default function AddScreen({ navigation }: { navigation: any }) {
 
         {/* Form Content */}
         <View style={styles.form}>
-          {/* Profile Info Display */}
-          {userProfile && (
-            <View style={styles.profileInfoContainer}>
-              <Text style={styles.profileInfoTitle}>Your Profile Data</Text>
-              <View style={styles.profileInfoGrid}>
-                <View style={styles.profileInfoItem}>
-                  <Text style={styles.profileInfoLabel}>Age</Text>
-                  <Text style={styles.profileInfoValue}>{userProfile.age || 'Not set'}</Text>
-                </View>
-                <View style={styles.profileInfoItem}>
-                  <Text style={styles.profileInfoLabel}>Weight</Text>
-                  <Text style={styles.profileInfoValue}>{userProfile.weight || 'Not set'} kg</Text>
-                </View>
-                <View style={styles.profileInfoItem}>
-                  <Text style={styles.profileInfoLabel}>Height</Text>
-                  <Text style={styles.profileInfoValue}>{userProfile.height || 'Not set'} cm</Text>
-                </View>
-                <View style={styles.profileInfoItem}>
-                  <Text style={styles.profileInfoLabel}>Gender</Text>
-                  <Text style={styles.profileInfoValue}>{userProfile.gender || 'Not set'}</Text>
-                </View>
-              </View>
-              <View style={styles.profileInfoRow}>
-                <Text style={styles.profileInfoLabel}>Goals: </Text>
-                <Text style={styles.profileInfoValue}>{userProfile.goals || 'General health'}</Text>
-              </View>
-              <View style={styles.profileInfoRow}>
-                <Text style={styles.profileInfoLabel}>Activity: </Text>
-                <Text style={styles.profileInfoValue}>
-                  {userProfile.activity_level || 'Not set'}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.editProfileButton}
-                onPress={() => navigation.navigate('ProfileForm')}>
-                <Ionicons name="create-outline" size={16} color="#8B0000" />
-                <Text style={styles.editProfileText}>Update Profile</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
           {/* Plan Name */}
           <Text style={styles.inputLabel}>Plan Name</Text>
           <TextInput
@@ -669,79 +612,6 @@ const styles = StyleSheet.create({
     left: 24,
     bottom: 60,
     right: 24,
-  },
-
-  // Profile Info Styles - NEW
-  profileInfoContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  profileInfoTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#8B0000',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  profileInfoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  profileInfoItem: {
-    width: '48%',
-    backgroundColor: '#F8F9FA',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    alignItems: 'center',
-  },
-  profileInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    backgroundColor: '#F8F9FA',
-    padding: 12,
-    borderRadius: 8,
-  },
-  profileInfoLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  profileInfoValue: {
-    fontSize: 14,
-    color: '#2C3E50',
-    fontWeight: '500',
-  },
-  editProfileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FEF2F2',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
-  },
-  editProfileText: {
-    color: '#8B0000',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
   },
 
   inputLabel: {
