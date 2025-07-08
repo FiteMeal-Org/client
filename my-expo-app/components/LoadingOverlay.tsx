@@ -3,16 +3,13 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   Animated,
   Dimensions,
   Modal,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface LoadingOverlayProps {
   visible: boolean;
