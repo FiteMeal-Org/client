@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -254,7 +254,7 @@ export default function UploadImageScreen({ navigation, route }: UploadImageScre
             </View>
           </View>
           <Text style={styles.title}>Upload Meal Photo</Text>
-          <Text style={styles.subtitle}>Upload your meal photo for "{planName}"</Text>
+          <Text style={styles.subtitle}>Upload your meal photo for {`"${planName}"`}</Text>
 
           {/* Plans Info */}
           <View style={styles.planInfo}>
